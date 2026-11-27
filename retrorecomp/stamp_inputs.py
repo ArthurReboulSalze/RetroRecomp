@@ -1304,13 +1304,14 @@ INPUTS = _resolve({
         'native/hostkit/adapters/rrhk_keypad.inc',
     ),
     # The player's « sprite flicker reduction » (F5: its key, menu row, help line and preference), one text for the adapters whose video
-    # chip drops sprites past a per-line limit (Master System, Game Gear, SG-1000, ColecoVision). Host role (in HOST_NATIVE above).
+    # chip drops sprites past a per-line limit (Master System, Game Gear, SG-1000, ColecoVision; the MSX family on its F2 row only, F5
+    # being its fast loading). Host role (in HOST_NATIVE above).
     'shares:hostkit_sprite_option': (
         'native/hostkit/adapters/rrhk_sprite_option.inc',
     ),
     # One adapter text in the five game languages, read for the current game language (docs/HOST_KIT.md 2.6): header only, included by
     # the adapters whose own words are not in the catalogue yet; hashed by the machines that include it (the ColecoVision, through the
-    # on-screen keypad). Host role (in HOST_NATIVE above).
+    # on-screen keypad; the Amstrad CPC; the MSX family, its sprite option's row). Host role (in HOST_NATIVE above).
     'shares:hostkit_text': (
         'native/hostkit/adapters/rrhk_text.h',
     ),

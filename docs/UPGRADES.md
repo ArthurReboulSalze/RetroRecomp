@@ -497,6 +497,37 @@ hand (the Spectrum's touch of 4f7f1fef is gone), and an unchanged project still 
 (`shares:z80_chain_glue` gains `retrorecomp.resource_rebuild`; their builders' game CMake lines change); the compiled game is the
 same; nothing else.
 
+## MSX, MSX2, MSX2+: sprite flicker reduction, on the F2 options row (next release)
+
+The MSX family gets the option of the Master System, the SG-1000 and the ColecoVision, **off by default**, saved in `[MSX]
+reduce_sprite_flicker` of `datas/Retro-Recomp.ini`. Its key is not F5: on the MSX, as on every computer, F5 held is « fast loading »
+(`rrhk_computer.inc`), so the option lives on the F2 options row only. The shared piece `rrhk_sprite_option.inc` takes a row key for
+that (`RR_SPRITE_OPTION_KEY`, here `RRHK_ROW_SPRITES`, a key past the scancodes that no keyboard sends) and the row's and the help's
+words; the help line says « F2 Reduce sprite flicker (options) », in the five game languages. Turned on, both video chips also draw the
+sprites past the line limit, behind the others: the MSX1's TMS9918A past the fourth (`tms9918_set_all_sprites`), the V9938 past the
+fourth in sprite mode 1 and past the **eighth in sprite mode 2** (`msx_v9938_set_all_sprites`). It is a switch of the picture, not part of
+either chip's state: the fifth- and ninth-sprite flags, the collision flag and its coordinates, the quick states and the multiplayer digest
+are unchanged, and each player of a match chooses their own. Like the others, it can show a sprite a game meant the limit to hide.
+
+- **Off is the old picture**: Nemesis (MSX1) and Aleste (MSX2, Graphic 4, sprite mode 2), each converted from e6bc5eec and from this
+  branch, their delivered games replaying the conversion's play route: every one of the 3,599 frame rows (CPU, RAM, picture, sound, sample
+  count, PC) of each game is equal to main's.
+- **On changes only the picture**: with it on (the headless `--all-sprites 1`), CPU, RAM, sound and PC are equal on every row; the
+  pictures differ on 163 frames of Nemesis (its ship's explosion and an enemy, missing on the line its four spinning enemies share, show
+  whole) and 137 of Aleste (its explosions are drawn whole).
+- **The Master System, Game Gear, SG-1000 and ColecoVision are byte-identical**: the shared piece with its default key (F5) compiles to
+  the same machine code and the same strings as main's (its preprocessed text differs by one `(int)` cast, which C applies anyway); their
+  adapters are untouched.
+- Checks: 19 new V9938 fixtures in `msx2_checks_sprites.c` (sprite mode 2: the ninth and tenth drawn behind, S#0-S#6 the same with and
+  without; sprite mode 1 on the V9938: the fifth and sixth drawn, S#0 the same), `tests/test_tms9918_sprites.py` (the MSX row key, both
+  chips, nothing in the state). The game with the new adapter builds and runs windowed with the preference on and off (exit 0 at its frame
+  limit); the F2 row itself was not pressed by a test (the host-kit A/B harness does not take an MSX project yet).
+
+**Stamps** (measured with `compilation_inputs.role_stamps` against e6bc5eec): the game stamps of the MSX, the MSX2 and the MSX2+ move
+(the V9938's drawing, the MSX header, the headless option and the MSX build, which stages `rrhk_text.h`); the host stamp of every machine
+on the host kit moves (`hostkit.h` gains `RRHK_ROW_SPRITES`, the shared piece its row-key parameter, the MSX adapter its row, and the MSX
+profiles now hash `shares:hostkit_sprite_option` and `shares:hostkit_text`); no build stamp moves; no quick state changes.
+
 ## SG-1000 and ColecoVision: sprite flicker reduction (F5), the Master System's option; one shared text (next release)
 
 The TMS9918A shows four sprites a line. The SG-1000 and the ColecoVision now have the Master System's **F5** option (off by default,

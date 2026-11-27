@@ -15,7 +15,8 @@
  * G3-G7: 8 per line, Y = 216 ends the list, a colour byte per row (EC, CC, IC, colour), sprites with CC set OR their
  * colour into the sprite before them and show only after a sprite with CC clear, collisions between sprites with CC
  * and IC clear (colour 0 only with TP) with the coordinates x + 12, y + 8 in S#3-S#6. Where hardware reports disagree,
- * the rules follow what openMSX does ("follows openMSX" in docs/MSX.md). */
+ * the rules follow what openMSX does ("follows openMSX" in docs/MSX.md). The player's F5 « sprite flicker reduction »
+ * (msx_v9938_set_all_sprites) also draws the sprites past either limit, for the picture only. */
 #include "msx_machine.h"
 
 #include <string.h>
@@ -43,6 +44,12 @@ static const uint16_t g7_sprite_colours[16] = {
     0x472, 0x007, 0x070, 0x077, 0x700, 0x707, 0x770, 0x777,
 };
 
+/* The player's choice (F5 sprite flicker reduction, off unless asked): the picture also shows the sprites the chip leaves out of a line
+ * (past the fourth in sprite mode 1, past the eighth in sprite mode 2), behind the others. A switch of the host, not part of the chip's
+ * state: the status flags, the collisions, the quick states and the multiplayer digest are the same either way. */
+static int v9938_all_sprites;
+void msx_v9938_set_all_sprites(int on) { v9938_all_sprites = on != 0; }
+
 static void v9938_tile_params(const MsxV9938 *v, TmsTileParams *t, int tp)
 {
     memset(t, 0, sizeof *t);
@@ -62,6 +69,7 @@ static void v9938_tile_params(const MsxV9938 *v, TmsTileParams *t, int tp)
     t->sprite_size = v->reg[1] & 3;
     t->sprite_colour0 = (uint8_t)tp;
     t->colour0_collides = (uint8_t)tp;
+    t->show_all = (uint8_t)v9938_all_sprites;      /* picture only (tms_tiles.inc) */
 }
 
 /* ---- sprite mode 2 ---- */
@@ -84,8 +92,11 @@ static void sprites2(MsxMachine *m, int line, int sline, uint8_t *layer)
     int size = big ? 16 : 8, shown = size << mag;
     uint32_t base = (((uint32_t)(v->reg[11] & 3) << 15) | ((uint32_t)v->reg[5] << 7)) & ~0x3FFu;
     uint32_t patterns = (uint32_t)(v->reg[6] & 0x3F) << 11, mask = MSX2_VRAM - 1;
-    Sprite2 visible[8];
-    int count = 0, ninth = -1, sprite = 0;
+    /* With the player's switch, the sprites past the eighth are kept for the picture (visible[8..total-1]); the flags and collisions
+     * below read only the chip's eight (`count`), so the program sees exactly what it sees without the switch. */
+    int extra = v9938_all_sprites && layer;
+    Sprite2 visible[32];
+    int total = 0, ninth = -1, sprite = 0;
     for (; sprite < 32; ++sprite) {
         uint32_t a = base + 0x200 + (uint32_t)sprite * 4;
         uint8_t y = SPRITE_VRAM(a & mask);
@@ -94,12 +105,13 @@ static void sprites2(MsxMachine *m, int line, int sline, uint8_t *layer)
         int row = (sline - 1 - y) & 0xFF;
         if (row >= shown)
             continue;
-        if (count == 8) {
+        if (total >= 8) {
             if (ninth < 0)
                 ninth = sprite;
-            continue;
+            if (!extra)
+                continue;
         }
-        Sprite2 *s = &visible[count++];
+        Sprite2 *s = &visible[total++];
         int r = row >> mag;
         uint8_t pattern = SPRITE_VRAM((a + 2) & mask);
         if (big) {
@@ -113,6 +125,7 @@ static void sprites2(MsxMachine *m, int line, int sline, uint8_t *layer)
         s->x = SPRITE_VRAM((a + 1) & mask) - ((s->attr & 0x80) ? 32 : 0);
     }
 #undef SPRITE_VRAM
+    int count = total < 8 ? total : 8;             /* the chip's sprites of this line */
     if (ninth >= 0 && !(v->status0 & 0xC0))
         v->status0 = (uint8_t)(0x40 | (v->status0 & 0x20) | ninth);
     if (!(v->status0 & 0x40))
@@ -153,9 +166,9 @@ static void sprites2(MsxMachine *m, int line, int sline, uint8_t *layer)
      * pixel takes the sprite's colour OR-ed with the CC sprites that directly follow it and have a pixel there, so the
      * lower numbers end in front. A colour-0 sprite is skipped unless TP is set. */
     int first = 0;
-    while (first < count && (visible[first].attr & 0x40))
+    while (first < total && (visible[first].attr & 0x40))
         ++first;
-    for (int i = count - 1; i >= first; --i) {
+    for (int i = total - 1; i >= first; --i) {     /* total == count without the player's switch */
         const Sprite2 *s = &visible[i];
         uint8_t c = s->attr & 0x0F;
         if (!c && !tp)
@@ -165,7 +178,7 @@ static void sprites2(MsxMachine *m, int line, int sline, uint8_t *layer)
             if (x < 0 || x >= MSX_WIDTH || !(s->bits & (0x8000u >> (p >> mag))))
                 continue;
             uint8_t colour = c;
-            for (int j = i + 1; j < count && (visible[j].attr & 0x40); ++j) {
+            for (int j = i + 1; j < total && (visible[j].attr & 0x40); ++j) {
                 int q = x - visible[j].x;
                 if (q >= 0 && q < shown && (visible[j].bits & (0x8000u >> (q >> mag))))
                     colour |= visible[j].attr & 0x0F;

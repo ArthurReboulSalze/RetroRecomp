@@ -442,6 +442,8 @@ void rrhk_menu_icon(const RrhkMenuCtx *ctx, int x, int y, int icon);
 void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y);
 /* The key of the computers' keyboard row on the options page (rrhk_computer.inc): the kit gives it the keyboard icon. */
 #define RRHK_ROW_KEYBOARD (SDL_NUM_SCANCODES + 1)
+/* The key of the « sprite flicker reduction » row on a computer whose F5 is « fast loading » (rrhk_sprite_option.inc, the MSX family). */
+#define RRHK_ROW_SPRITES (SDL_NUM_SCANCODES + 22)
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value);
 /* 1.7.5: an options row with its own icon (RR_ICON_ROW_*); rrhk_option_row lets the kit choose by the row's key (D20). */
 void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value);

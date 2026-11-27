@@ -2,7 +2,8 @@
  * Retro-Recomp. Included by the native check (msx_native_main.c) and by the game (msx_player.c, `--headless`), so the
  * delivered file replays a route exactly as the check does and prints the same report.
  *
- * Options (headless_option): --frames N --frame FILE --vram FILE --watch ADDR --report FILE --trace-cycles A:B, --pictures DIR
+ * Options (headless_option): --frames N --frame FILE --vram FILE --watch ADDR --report FILE --trace-cycles A:B, --all-sprites 0|1
+ * (the picture-only « sprite flicker reduction » of F5), --pictures DIR
  * with --picture-every N (the raw picture of every Nth frame, frame-NNNNNN.bin, as --frame writes it), and the
  * route's (--event, --script, --rows, --audio). The report is the JSON the conversion compares (msx_build.COMPARED); it
  * goes to --report FILE, or to the standard output when none is given (the game is linked for the Windows subsystem, so
@@ -40,6 +41,11 @@ static int headless_option(const char *a, const char *v)
     else if (!strcmp(a, "--picture-every")) { picture_every = strtoul(v, NULL, 10); if (!picture_every) return -1; }
     else if (!strcmp(a, "--trace-cycles")) sscanf(v, "%llu:%llu", &trace_from, &trace_to);
     else if (!strcmp(a, "--watch")) { if (watches < 32) watch[watches++] = (unsigned)strtoul(v, NULL, 16) & 0xFFFF; }
+    else if (!strcmp(a, "--all-sprites")) {         /* the player's F5 « sprite flicker reduction », picture only, for the checks */
+        int on = strcmp(v, "0") != 0;
+        tms9918_set_all_sprites(on);
+        msx_v9938_set_all_sprites(on);
+    }
     else return msx_route_option(a, v);
     return 1;
 }
