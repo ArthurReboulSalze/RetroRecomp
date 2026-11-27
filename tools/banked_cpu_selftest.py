@@ -1,7 +1,12 @@
 """Compare native instruction bodies to the shared reference on ROM positions.
 
-Run after converting the chosen game with --backend banked. Every register,
+Run after converting the chosen game with --backend banked and --keep-build (batch removes
+the build folder otherwise): the check is built in that folder, with its configuration. It also
+runs the 720 interrupt-acceptance states of native/banked_cpu_checks.c. Every register,
 including WZ and Q/P, is required to agree. No flag or I/O mismatches are masked.
+
+    python -B RetroRecomp.py batch <game> --output <folder> --keep-build
+    python -B tools/banked_cpu_selftest.py "<folder>/Master System"
 """
 import argparse
 import json
@@ -29,6 +34,8 @@ def main():
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["backend"] == "banked"
     game = Path(report["build_directory"])
+    if not (game / "build-native" / "CMakeCache.txt").is_file() or not (game / "generated").is_dir():
+        sys.exit(f"The build folder of this conversion was removed: convert the game again with --keep-build ({game}).")
     engine, sdl, cmake, generator = dependencies()
     source = ROOT / ".build/native-source"
     from retrorecomp import hostkit
