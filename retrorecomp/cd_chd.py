@@ -1,11 +1,16 @@
-"""CHD disc images, read in place by pure Python (Retro-Recomp's own code, MIT): enough to identify a PC Engine CD.
+"""CHD disc images, read in place by pure Python (Retro-Recomp's own code, MIT): enough to identify a disc, shared by the PC Engine CD
+and the PlayStation (moved from `pcecd_chd.py` for the PlayStation's CHD discs; the PC Engine CD reads exactly as before).
 
 The converter has to say what a `.chd` holds before it converts anything, and a scan must not need a compiler or a DLL. This reader
 decodes what the identification needs, the data track's first sectors, from the published layout of the format (MAME's `chd.h`
 and `chdcodec`, which libchdr also follows): the version 4 and version 5 headers, the metadata chain (`CHT2` and `CHTR` track
 records), the version 4 map, the version 5 map (uncompressed, or the Huffman-coded one), and the hunk codecs a CD image uses
-(`cdzl`, `cdlz`, `zlib`, and raw hunks). The game itself reads the disc through libchdr, linked into the executable
-(docs/PC_ENGINE_CD.md); nothing here is in a game.
+(`cdzl`, `cdlz`, `zlib`, and raw hunks). A PC Engine CD game reads its disc through libchdr, linked into the executable
+(docs/PC_ENGINE_CD.md); the PlayStation's converter decodes a whole disc through libchdr too (`chd_native`, for the audio codec and
+Zstandard). Nothing here is in a game.
+
+`layout()` is the one numbering of a CHD's sectors both machines use: LBA 0 at index 01 of track 1, a pregap the image stores
+(`PGTYPE:V...`) part of its track (its INDEX 00 sectors), a pregap it does not store virtual, every track padded to four frames.
 
 Every decoded hunk is checked against the CRC the map holds (CRC-16 of CCITT for version 5, CRC-32 for version 4), so a wrong
 decode is an error and never a wrong answer. A hunk of a codec this reader does not implement (`cdfl`, the audio codec) raises
@@ -44,7 +49,7 @@ class ChdCodecError(ChdError):
 @dataclass(frozen=True)
 class ChdTrack:
     number: int
-    type: str            # 'MODE1', 'MODE1_RAW', 'AUDIO'
+    type: str            # 'MODE1', 'MODE1_RAW', 'MODE2_RAW', 'AUDIO'
     frames: int
     pregap: int
     postgap: int
@@ -184,6 +189,28 @@ class _Huffman:
         entry = self.table[bits.peek(self.maxbits)]
         bits.read(entry & 0x1F)
         return entry >> 5
+
+
+@dataclass(frozen=True)
+class TrackPlace:
+    """Where a CHD track lies: its numbering on the disc and its frames in the image."""
+    track: ChdTrack
+    start: int           # LBA of index 01
+    length: int          # sectors from index 01
+    pregap: int          # sectors before index 01 that belong to the track (stored or virtual)
+    stored: int          # of those, the sectors the image holds (before index 01, from `frame`)
+    frame: int           # the image's first frame of the track (its first stored pregap frame, or index 01)
+
+
+def layout(tracks: list[ChdTrack]) -> list[TrackPlace]:
+    """The numbering of the tracks' sectors (the PC Engine CD engine's own provider and a CUE/BIN set of the same disc agree on it)."""
+    places, lba, frame = [], 0, 0
+    for track in tracks:
+        stored = track.pregap if track.pregap_stored else 0
+        places.append(TrackPlace(track, lba + track.pregap, track.frames - stored, track.pregap, stored, frame))
+        lba += track.frames + track.postgap + (0 if track.pregap_stored else track.pregap)
+        frame += -(-track.frames // 4) * 4
+    return places
 
 
 class Chd:
@@ -352,7 +379,7 @@ class Chd:
                     pregap, postgap = int(fields.get('PREGAP', 0)), int(fields.get('POSTGAP', 0))
                 except (KeyError, ValueError):
                     raise ChdError(f'{self.path.name}: bad CHD track metadata') from None
-                if number != len(tracks) + 1 or kind not in ('MODE1', 'MODE1_RAW', 'AUDIO'):
+                if number != len(tracks) + 1 or kind not in ('MODE1', 'MODE1_RAW', 'MODE2_RAW', 'AUDIO'):
                     raise ChdError(f'{self.path.name}: a CHD track layout this reader does not know ({kind})')
                 stored = fields.get('PGTYPE', '').startswith('V') and pregap > 0
                 if stored and pregap >= frames:

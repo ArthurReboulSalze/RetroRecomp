@@ -24,7 +24,7 @@ study.
 
 By what it holds, never by its extension (a CHD or a CUE is also the container of other machines' discs): the second sector of the first
 data track has the text `PC Engine CD-ROM SYSTEM` at offset 32 and the boot record (where the program is, where it loads, where it
-starts). `retrorecomp/pcecd_disc.py` reads that sector from a CHD (its own pure-Python reader, `retrorecomp/pcecd_chd.py`, which checks
+starts). `retrorecomp/pcecd_disc.py` reads that sector from a CHD (its own pure-Python reader, `retrorecomp/cd_chd.py`, shared with the PlayStation's CHD discs, which checks
 every hunk it decodes against the CRC of the file's map), from a CUE sheet or from an ISO (the PlayStation's generic readers).
 
 On the 42 CHD discs of the maintainer's library (13.1 GB, 7 MB to 687 MB): all 42 are recognised in 5.5 seconds on a network share; 31 are

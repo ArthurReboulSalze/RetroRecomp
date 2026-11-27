@@ -249,7 +249,7 @@ validation and physical latency are separate measures and none is claimed beyond
 
 The **Sony PlayStation** profile is supported since 1.7.6, on the owner's decision of 15 November 2026 after his play test (open in 1.7.1; [status](PLAYSTATION.md)): a conversion makes a
 playable game whose R3000A code, as far as its routes saw it run, is guarded native steps; the rest runs on the interpreter and
-is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
+is counted. Its scope (discs as EBOOT, CUE/BIN, CloneCD, CHD or ISO, NTSC and PAL, your own BIOS or the free OpenBIOS, the DualShock
 pad) and its checks are on [its page](PLAYSTATION.md). Its picture is drawn in software on one thread: 1x and 2x hold speed, a higher
 internal resolution is heavy in 3D scenes.
 

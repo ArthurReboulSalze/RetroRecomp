@@ -1,6 +1,6 @@
 """PC Engine CD discs as the player gives them, read in place and never changed (Retro-Recomp's own code, MIT).
 
-Containers: a CHD (version 4 or 5, read by `pcecd_chd`), a CUE sheet with its BIN files, and a bare `.iso` of 2,048-byte sectors. The
+Containers: a CHD (version 4 or 5, read by `cd_chd`), a CUE sheet with its BIN files, and a bare `.iso` of 2,048-byte sectors. The
 CUE and ISO readers are the PlayStation's generic ones (`psx_disc`, pure Python: tracks, sectors, the CUE grammar); a disc is the
 same list of tracks over the same numbering of sectors, so this module only adds the CHD container and what is the PC Engine's.
 
@@ -20,7 +20,7 @@ import hashlib
 from pathlib import Path
 import struct
 
-from . import pcecd_chd, psx_disc
+from . import cd_chd, psx_disc
 
 DiscError = psx_disc.DiscError
 IPL_SIGNATURE = b'PC Engine CD-ROM SYSTEM\x00'
@@ -32,9 +32,9 @@ CHUNK = 8 * 1024 * 1024
 class _ChdSource:
     """The frames of a CHD as a sector source (the 2,448-byte stride of the format), read through its hunks."""
 
-    stride = pcecd_chd.FRAME
+    stride = cd_chd.FRAME
 
-    def __init__(self, chd: pcecd_chd.Chd):
+    def __init__(self, chd: cd_chd.Chd):
         self.chd = chd
         self.path = chd.path
         self.size = chd.logical_bytes
@@ -42,7 +42,7 @@ class _ChdSource:
     def read(self, offset: int, length: int) -> bytes:
         try:
             return self.chd.read(offset, length)
-        except pcecd_chd.ChdError as error:
+        except cd_chd.ChdError as error:
             raise DiscError(str(error)) from None
 
     def close(self) -> None:
@@ -54,21 +54,17 @@ def chd_disc(path: Path) -> psx_disc.Disc:
     a pregap is virtual unless the image stores it, and a track begins at its index 01."""
     path = Path(path)
     try:
-        chd = pcecd_chd.Chd(path)
-    except pcecd_chd.ChdError as error:
+        chd = cd_chd.Chd(path)
+    except cd_chd.ChdError as error:
         raise DiscError(str(error)) from None
+    modes = {'MODE1': 'MODE1/2048', 'MODE1_RAW': 'MODE1/2352', 'AUDIO': 'AUDIO'}
+    odd = next((t for t in chd.tracks if t.type not in modes), None)
+    if odd is not None:
+        chd.close()
+        raise DiscError(f'{path.name}: track {odd.number} is {odd.type}; a PC Engine CD holds MODE1 and AUDIO tracks')
     source = _ChdSource(chd)
-    tracks, lba, frame = [], 0, 0
-    for track in chd.tracks:
-        pregap = track.pregap
-        stored = track.pregap if track.pregap_stored else 0
-        start = lba + pregap
-        length = track.frames - stored
-        mode = {'MODE1': 'MODE1/2048', 'MODE1_RAW': 'MODE1/2352', 'AUDIO': 'AUDIO'}[track.type]
-        tracks.append(psx_disc.Track(track.number, mode, start, length, pregap, source, offset=(frame + stored) * pcecd_chd.FRAME,
-                                     stored_pregap=stored))
-        lba += track.frames + track.postgap + (0 if track.pregap_stored else pregap)
-        frame += -(-track.frames // 4) * 4
+    tracks = [psx_disc.Track(p.track.number, modes[p.track.type], p.start, p.length, p.pregap, source,
+                             offset=(p.frame + p.stored) * cd_chd.FRAME, stored_pregap=p.stored) for p in cd_chd.layout(chd.tracks)]
     return psx_disc.Disc(path, 'chd', tracks, [source])
 
 

@@ -19,7 +19,9 @@ APERTURES = ((0x00000000, 0x00200000), (0x1f800000, 0x1f800400), (0x1fc00000, 0x
 # The extensions only the PlayStation reads here (`.img` is a CloneCD or raw disc image, read by no other machine); a `.bin` is
 # shared with the cartridge machines and claimed by its content only (identify_path), so it stays in the registry's foreign list.
 # `.m3u` is the X68000's (its disk sets): a PlayStation playlist is not claimed until that machine checks the content too.
-DISC_EXTENSIONS = ('.pbp', '.cue', '.ccd', '.iso', '.img')
+# `.chd` is shared with the PC Engine CD (path_order 61, after this one): each claims a CHD by what its disc holds, and a CHD this
+# reader cannot open or that holds no PlayStation volume is left to it.
+DISC_EXTENSIONS = ('.pbp', '.cue', '.ccd', '.iso', '.img', '.chd')
 RAW_EXTENSIONS = ('.bin',)
 
 
@@ -90,6 +92,13 @@ class PlayStationProfile(SystemProfile):
         if selected_system and selected_system != self.id:
             raise ConsoleMismatchError('Detected Sony PlayStation; choose Automatic or Sony PlayStation.', self.id)
         return self
+
+    def refine_match(self, path: Path, data: bytes | None):
+        """The extension stage names this machine for a `.img`, `.ccd` or `.pbp` that its content check (identify_path) has
+        already left: a Saturn image, a PSP EBOOT, another machine's CloneCD dump. A disc is the PlayStation's by what it holds,
+        never by its extension, so the file is refused with that reason instead of being labelled a PlayStation disc."""
+        raise UnsupportedConsoleError(f'{path.name} is not a disc of a supported machine: a disc is recognised by what it holds '
+                                      '(a PlayStation volume and its SYSTEM.CNF, a PC Engine CD boot sector), and this one holds neither.')
 
     def read_rom(self, path: Path):
         from ..psx import read_input

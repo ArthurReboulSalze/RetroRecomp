@@ -29,7 +29,7 @@ tools/fetch_psx_vectors.py tools/psx_vector_selftest.py tests/test_psx_vector_se
 native/gba_vector_checks/ss_common.h native/gba_vector_checks/ss_gen.cpp native/gba_vector_checks/ss_run.cpp
 native/gba_vector_checks/ss_interp.cpp
 retrorecomp/pce_rom.py retrorecomp/pce_conversion.py retrorecomp/route_start.py retrorecomp/pce_knowledge.py retrorecomp/systems/pc_engine.py
-retrorecomp/pcecd.py retrorecomp/pcecd_build.py retrorecomp/pcecd_card.py retrorecomp/pcecd_chd.py retrorecomp/pcecd_conversion.py retrorecomp/pcecd_disc.py retrorecomp/systems/pc_engine_cd.py
+retrorecomp/pcecd.py retrorecomp/pcecd_build.py retrorecomp/pcecd_card.py retrorecomp/cd_chd.py retrorecomp/pcecd_conversion.py retrorecomp/pcecd_disc.py retrorecomp/systems/pc_engine_cd.py
 tests/test_pcecd_disc.py tests/test_pcecd_build.py tests/test_pcecd_routes.py retrorecomp/pcecd_routes.py tools/pcecd_fallback_cost.py docs/PC_ENGINE_CD.md native/hostkit/adapters/rrhk_pcecd.c native/pcecd_disc.cpp native/pcecd_disc.h native/pcecd_pack.c native/pcecd_pack.h native/pcecd_disc_checks.cpp tools/pcecd_disc_selftest.py tools/pcecd_snapshot_selftest.py tools/pcecd_multitap_probe.py native/pcecd_mame_probe.cpp tools/pcecd_mame_compare.py
 licenses/pcenginerecomp.md licenses/libchdr.md tests/test_pc_engine.py docs/PC_ENGINE.md
 native/pce_engine/pcm.cpp native/pce_engine/raster.cpp native/pce_engine/scanline.cpp native/pce_engine/video.cpp retrorecomp/pce_build.py native/pce_main.c native/pce_machine.cpp native/pce_machine.h native/pce_machine_internal.hpp native/pce_snapshot.cpp native/pce_snapshot.h
@@ -40,6 +40,7 @@ retrorecomp/systems/scummvm.py retrorecomp/scummvm_build.py retrorecomp/scummvm_
 native/scummvm/LICENSE native/scummvm/README.md native/scummvm/patches/0001-retrorecomp-pack-launch-nodialog.patch native/scummvm/patches/0002-retrorecomp-options-page.patch native/scummvm/patches/0003-retrorecomp-theme-colours.patch
 licenses/scummvm.md licenses/freetype.md tools/build_scummvm_source_archive.py tests/test_scummvm_export.py
 retrorecomp/psx.py retrorecomp/psx_bios.py retrorecomp/psx_disc.py retrorecomp/systems/psx.py
+retrorecomp/chd_native.py native/chd_sectors/chd_sectors.c tests/test_psx_chd.py
 tests/test_psx_disc.py tests/test_psx_pack.py tests/test_psx_native.py tests/test_psx_adapter.py tests/test_psx_knowledge.py docs/PLAYSTATION.md retrorecomp/psx_beetle.py retrorecomp/psx_pack.py licenses/beetle-psx.md
 native/psx_machine/CMakeLists.txt native/psx_machine/psx_session.c native/psx_machine/psx_session.h native/psx_machine/psx_reference.c native/psx_machine/psx_spirv_reflect.c native/psx_machine/psx_hdr_none.c
 native/psx_machine/psx_main.c native/psx_machine/psx_observe.c retrorecomp/psx_native.py retrorecomp/psx_knowledge.py retrorecomp/psx_build.py native/hostkit/adapters/rrhk_psx.c retrorecomp/psx_conversion.py

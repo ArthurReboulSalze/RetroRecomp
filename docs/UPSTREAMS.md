@@ -568,7 +568,7 @@ engine's reader into a different shape. What the provider does that the engine's
 
 The numbering of sectors, the classification of tracks and the errors a guest can see are the engine's (the same rules, written again): `tools/pcecd_disc_selftest.py`
 compares the provider with the engine's and finds them equal on the version 5 discs tried, audio included (Ys III, Lords of Thunder and an authored set of CHD, ISO and embedded forms), and equal to the
-pure-Python reader of `retrorecomp/pcecd_chd.py` on version 4 (Dracula X, Valis IV). The ISO of the engine's reader is read the same way. Nothing here is offered upstream yet: a
+pure-Python reader of `retrorecomp/cd_chd.py` on version 4 (Dracula X, Valis IV). The ISO of the engine's reader is read the same way. Nothing here is offered upstream yet: a
 version 4 header in the engine's reader would be a small change against `6bb848e` (or the head then), on the maintainer's word.
 
 ## Nintendo 64: patches carried on Mupen64Plus-Next (1.9.0)
