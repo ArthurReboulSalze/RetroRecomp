@@ -1,7 +1,7 @@
 # Game Boy Color
 
-**Status: supported** since 27 November 2026, on the owner's acceptance (G14); it ships with the next release, and no published release holds
-it yet. The Game Boy Color is the second machine of the Game Boy
+**Status: supported** since 1.10.0, on the owner's acceptance (G14) of 27 November 2026.
+The Game Boy Color is the second machine of the Game Boy
 engine: the same SM83 and the same pinned recompiler ([GAME_BOY.md](GAME_BOY.md)), started in the colour hardware's model. It has a
 profile of its own (`gbc`), as the Game Gear has on the Master System's engine, so that its evidence, its gates, its
 paths, its library and its settings are its own. The original Game Boy stays what it is.

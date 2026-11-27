@@ -27,7 +27,7 @@ named as the install's folder is the game and its intro, editor or helper slaves
 when that same slave is also kept in the data folder, the copy in the install's folder is taken (4 of the 40). An archive where no single
 slave is named so, a collection such as Dizzy Collection, Populous 2 & Challenge Games or Time Runners Series (11 of the 40), is refused
 with a sentence that says it holds several slaves, never guessed. The detection and the conversion choose with the same rule
-(`amiga_whdload.slave_choice`, next release). The archive is read in place and never
+(`amiga_whdload.slave_choice`, 1.10.0). The archive is read in place and never
 changed. An install that asks for a Kickstart uses the player's own image (section 2a); Retro-Recomp supplies none, fetches none
 and shares none. The player supplies the install; Retro-Recomp publishes no game, no disk and no firmware.
 

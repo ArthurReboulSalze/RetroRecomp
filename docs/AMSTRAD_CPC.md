@@ -1,6 +1,6 @@
 # Amstrad CPC
 
-**Status: supported (from the next release, on the owner's G14 of 27 November 2026).** The profile `cpc` converts Amstrad CPC
+**Status: supported (since 1.10.0, on the owner's G14 of 27 November 2026).** The profile `cpc` converts Amstrad CPC
 6128 disk games on the CPC 6128's firmware, in every installation, through the converter window and `RetroRecomp.py batch
 --system cpc` as the other machines do. The panel's eight games convert with 0 interpreted instructions on their routes, equal
 to the reference interpreter frame by frame, the same on Windows and Linux ([section 5](#5-panel-22-november-2026-taken-again-on-27-november-with-the-routes-fire-on-the-sticks-default-line)); the owner
