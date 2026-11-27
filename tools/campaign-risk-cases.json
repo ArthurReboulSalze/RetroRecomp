@@ -76,6 +76,38 @@
       {"title": "Crazy Taxi - Catch a Ride", "category": "software-3d", "reason": "A software 3D game in bitmap modes: 60.7 million interpreted instructions at pass 1, two passes to 0; the case for a picture that changes on every frame", "source": "docs/GAME_BOY_ADVANCE.md"},
       {"title": "Mario & Luigi - Superstar Saga", "category": "large-first-pass", "reason": "The largest first pass seen (153 million interpreted instructions in the generic scenario) on a 16 MB EEPROM cartridge: three passes to 0", "source": "docs/GAME_BOY_ADVANCE.md"}
     ],
+    "pcecd": [
+     {
+      "title": "Buster Bros.",
+      "category": "regression-baseline",
+      "reason": "Control case: 0 interpreted instructions on its three routes, the explored route plays two stages",
+      "source": "docs/PC_ENGINE_CD.md"
+     },
+     {
+      "title": "Akumajou Dracula X - Chi no Rondo",
+      "category": "chd-version-4",
+      "reason": "CHD of version 4 and a Japanese disc; the long route must type a name on the file screen (a backup memory write, as Ys Book I & II do) before play",
+      "source": "docs/PC_ENGINE_CD.md"
+     },
+     {
+      "title": "Addams Family, The",
+      "category": "data-only-disc",
+      "reason": "One cooked data track and no audio track, the smallest disc; the drive's unknown command $FF on Run needs the NEC-style answer",
+      "source": "docs/PC_ENGINE_CD.md"
+     },
+     {
+      "title": "Lords of Thunder",
+      "category": "large-code",
+      "reason": "The most code: 125,684 instructions in 841 bank contexts, CD audio driven by the game",
+      "source": "docs/PC_ENGINE_CD.md"
+     },
+     {
+      "title": "Dungeon Explorer II",
+      "category": "four-players",
+      "reason": "Reads three extra pads of the multitap (built for four); the routes reach the map and the opening scenes, not play",
+      "source": "docs/PC_ENGINE_CD.md"
+     }
+    ],
     "pce": [
       {"title": "Bonk's Adventure", "category": "regression-baseline", "reason": "Control case: 0 interpreted instructions on its routes; the play route needs two Run presses because a third pauses the game", "source": "docs/PC_ENGINE.md"},
       {"title": "Street Fighter II' - Champion Edition", "category": "identity-bound", "reason": "2.5 MiB board with 466 bank contexts: needs more than 65,536 instruction identities, so it takes the engine's larger capture format (734,635 emitted); a 25 MB game and a long conversion, and whatever passes 1,048,576 is left out and counted", "source": "docs/PC_ENGINE.md"},
