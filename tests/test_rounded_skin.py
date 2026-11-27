@@ -527,3 +527,61 @@ class NoAbortWhenAWorkerCollects(unittest.TestCase):
         result = subprocess.run([sys.executable, '-B', '-c', GC_IN_A_WORKER, str(root)], capture_output=True, text=True,
                                 timeout=120, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         self.assertEqual((result.returncode, result.stdout.strip()), (0, 'alive'), result.stderr[-2000:])
+
+
+class RoundedCornersOff(unittest.TestCase):
+    """Options, « Rounded corners » off (preference `rounded_corners`, read at start): the plain skin makes no picture and no
+    element, every style keeps its name and the theme's own shape, and the cards and toggles of rounded_ui.Look are flat."""
+
+    def setUp(self):
+        release_tk(self)
+        self.root = tk_root(self)
+        self.addCleanup(self.root.destroy)
+        apply_rounded_theme(self.root, 'Segoe UI', rounded=False)
+        self.style = ttk.Style(self.root)
+        self.skin = skin_of(self.root)
+
+    def test_widgets_keep_their_style_and_nothing_is_drawn(self):
+        self.assertTrue(self.skin.plain)
+        before = set(self.style.element_names())
+        panel = tk.Frame(self.root, bg='#444444')                # another surface: a rounded skin would derive a style here
+        for name, widget_class in WIDGETS:
+            kw = {'orient': 'vertical'} if widget_class is ttk.Scrollbar else {}
+            widget = widget_class(panel, style=name, **kw)
+            if widget_class is not ttk.Checkbutton:
+                self.assertEqual(str(widget.cget('style')), name)
+        self.root.update_idletasks()
+        self.assertEqual(self.skin.pictures, 0)
+        self.assertEqual(self.skin.images, [])
+        self.assertEqual(set(self.style.element_names()), before)
+        self.assertNotIn(self.skin.tag, self.layout('TButton'))
+
+    def test_a_check_box_still_takes_its_surface(self):
+        panel = tk.Frame(self.root, bg='#444444')
+        box = ttk.Checkbutton(panel, text='Abc')
+        self.assertEqual(self.style.lookup(str(box.cget('style')), 'background'), '#444444')
+
+    def test_looks_are_flat(self):
+        look = Look(self.root, COLORS, 'Segoe UI')
+        card = look.card('TestCard', '#303030', '#232323')
+        toggle = look.segment('TestToggle', '#191919', '#d4a737', '#444444')
+        pill = look.pill_button('TestPill', '#d4a737', '#efc64f', '#191919', '#303030', 12)
+        self.assertEqual(look.images, [])
+        self.assertEqual(self.style.lookup(card, 'background'), '#303030')
+        self.assertEqual(self.style.lookup(toggle, 'background', ['selected']), '#d4a737')
+        self.assertNotIn('image', self.layout(toggle) + self.layout(pill))
+        frame = ttk.Frame(self.root, style=card)
+        ttk.Radiobutton(frame, style=toggle, text='A', value=1).pack()
+        ttk.Button(frame, style=pill, text='B').pack()
+        frame.pack()
+        self.root.update_idletasks()
+        self.assertEqual(self.skin.pictures, 0)
+
+    def test_badges_are_rectangles(self):
+        from retrorecomp.gui_drawing import _rounded
+        canvas = tk.Canvas(self.root)
+        item = _rounded(canvas, 0, 0, 40, 14, 4, fill='#d4a737', outline='')
+        self.assertEqual(canvas.type(item), 'rectangle')
+
+    def layout(self, name):
+        return str(self.style.layout(name))

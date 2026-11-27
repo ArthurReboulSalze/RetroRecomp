@@ -23,6 +23,17 @@
 again once; its cartridge saves and quick-state format are not changed by this work
 ([UPGRADES.md](UPGRADES.md#game-boy-and-game-boy-color-exports-of-191-next-release)).
 
+## The converter's window answers faster
+
+- **A batch no longer freezes the window.** Each turn now writes the log's lines at once, and the panel keeps the last 5,000 lines;
+  the whole session stays available for problem reports. Before, 3,000 lines arriving together held the window more than a
+  second.
+- **Options opens at once.** A machine's page is built the first time it is chosen in the Consoles list, no longer the 27 pages
+  each time Options opens.
+- **Compiled Games opens sooner.** Its code is read in the background a few seconds after start.
+- **Options > Common > Rounded corners.** Turn it off for plain rectangles, drawn without pictures. It applies at the next
+  start. Rounded corners are not what made the window slow.
+
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still
 counted and shown per CPU and per device wherever it is used.
 

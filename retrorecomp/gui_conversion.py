@@ -22,6 +22,12 @@ from .dialogs import center_dialog
 from .platforms import open_local
 from .gui_common import INTERFACE_PREFERENCES, SENDING_AVAILABLE, SEND_EVERY
 
+# The log panel (drain): the lines it keeps (session_log keeps the whole session), how long one turn may read the queue
+# before the window gets its turn back (seconds), and the last lines the collection's status mirrors.
+LOG_KEEP = 5000
+DRAIN_BUDGET = 0.030
+LOG_SHOWN = 8
+
 
 class ConversionMixin:
     """Running a conversion batch: preferences, start, stop, the progress drain, play and the results."""
@@ -57,6 +63,7 @@ class ConversionMixin:
             ask_missing_cover=self.ask_missing_cover.get(),
             use_shared_base=self.use_shared_base.get(), send_after_batch=self.send_after_batch.get(),
             compress_games=self.compress_games.get(),
+            rounded_corners=self.rounded_corners.get(),
             startup_update_check=self.check_at_startup.get(), last_update_check=self.last_update_check,
             start_front_end=self.start_front_end.get(),
             start_front_end_fullscreen=self.start_front_end_fullscreen.get(),
@@ -259,7 +266,9 @@ class ConversionMixin:
             for control, active_state in self.option_controls:
                 control.configure(state=active_state if enabled else 'disabled')
             for system in self.feedback_importing:
-                self.feedback_import_buttons[system].configure(state='disabled')
+                button = self.feedback_import_buttons.get(system)     # its machine's page may not be built (build_console_page)
+                if button is not None and button.winfo_exists():
+                    button.configure(state='disabled')
         # The credits stay open to visitors during a batch; the compiled games,
         # the help, the leaderboard and the account are not managed here.
         self.credits_button.configure(state='normal')
@@ -340,20 +349,43 @@ class ConversionMixin:
         self.app.wait_window(window)
         return chosen['value']
 
+    def write_log(self, lines):
+        """The log lines a turn of drain() gathered, written at once: one insert and one scroll (per line, `see` laid the whole
+        panel out again: 3,000 lines of a batch held the window over a second, 27 November 2026). The panel keeps the last
+        LOG_KEEP lines; every line of the session stays in session_log for problem reports."""
+        if not lines:
+            return
+        session = getattr(self, 'session_log', None)
+        if session is not None:
+            session.extend(lines)
+        self.end_welcome()      # the first real line clears the welcome for good
+        self.log.configure(state='normal')
+        self.log.insert('end', '\n'.join(lines) + '\n')
+        count = int(self.log.index('end-1c').split('.')[0])
+        if count > LOG_KEEP + LOG_KEEP // 10:      # a tenth over, so that a long batch deletes once in a while
+            self.log.delete('1.0', f'{count - LOG_KEEP}.0')
+        self.log.see('end')
+        self.log.configure(state='disabled')
+        if self.compiled_view is not None:
+            self.compiled_view.show_log('\n'.join(lines[-LOG_SHOWN:]))
+        lines.clear()
+
     def drain(self):
+        lines = []
+        started = time.perf_counter()
+        more = False
         try:
             while True:
+                if time.perf_counter() - started > DRAIN_BUDGET:
+                    more = True                # the rest next turn: the window answers in between
+                    break
                 event = self.messages.get_nowait()
                 kind = event[0]
                 if kind == 'log':
-                    getattr(self, 'session_log', []).append(event[1])
-                    self.end_welcome()      # the first real line clears the welcome for good
-                    self.log.configure(state='normal')
-                    self.log.insert('end', event[1] + '\n')
-                    self.log.see('end')
-                    self.log.configure(state='disabled')
-                    if self.compiled_view is not None:self.compiled_view.show_log(event[1])
-                elif kind == 'footer_progress':
+                    lines.append(event[1])
+                    continue
+                self.write_log(lines)          # what came before this event, in order
+                if kind == 'footer_progress':
                     # Only while the spinner turns (counting or sending).
                     if getattr(self, 'sending_count', 0) > 0:
                         self.footer_label.configure(text=event[1])
@@ -425,6 +457,7 @@ class ConversionMixin:
                         self.table.set(row, 'status', self.tr('waiting'))
                     self.running_jobs.clear()
                     if self.close_when_idle:
+                        self.write_log(lines)
                         self.leave_discoveries_waiting()
                         self.close()
                         return
@@ -447,6 +480,7 @@ class ConversionMixin:
                 elif kind == 'base_updated':
                     self.base_update_done(event[1], event[2])
                 elif kind == 'update_ready':
+                    self.write_log(lines)
                     self._start_prepared_update(event[1], event[2])
                     return
                 elif kind == 'update_error':
@@ -515,6 +549,7 @@ class ConversionMixin:
                         if event[1].get('detail'):summary+=' · '+event[1]['detail']
                         self.compiled_view.status.set(summary)
                     if self.close_when_idle:
+                        self.write_log(lines)
                         self.leave_discoveries_waiting()
                         self.close()
                         return
@@ -538,13 +573,14 @@ class ConversionMixin:
                     self.report_sent(event[1], event[2])
         except queue.Empty:
             pass
+        self.write_log(lines)
         for row, result in self.results.items():
             if result.get('pending_install') and not is_pending(Path(result['executable'])):
                 result['pending_install'] = False
                 self.row_status[row] = 'created'
                 self.table.set(row, 'status', self.tr('created'))
                 self.selection_changed()
-        self.app.after(100, self.drain)
+        self.app.after(1 if more else 100, self.drain)
 
     def play(self):
         rows = self.table.selection()

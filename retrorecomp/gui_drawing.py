@@ -8,6 +8,7 @@ import time
 import tkinter as tk
 
 from . import online
+from .rounded_skin import skin_of
 from .branding import COLORS, make_icon, icon_paths, ICON_PATHS
 from . import tk_later
 
@@ -419,6 +420,10 @@ def draw_pin(canvas, x, y, pin, tags=()):
 
 
 def _rounded(canvas, x0, y0, x1, y1, radius, **options):
+    skin = skin_of(canvas)
+    if skin is not None and skin.plain:              # rounded corners off (Options): a plain rectangle
+        options.pop('smooth', None)
+        return canvas.create_rectangle(x0, y0, x1, y1, **options)
     points = (x0 + radius, y0, x1 - radius, y0, x1, y0, x1, y0 + radius, x1, y1 - radius, x1, y1,
               x1 - radius, y1, x0 + radius, y1, x0, y1, x0, y1 - radius, x0, y0 + radius, x0, y0)
     return canvas.create_polygon(points, smooth=True, **options)

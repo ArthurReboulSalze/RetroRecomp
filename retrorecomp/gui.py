@@ -67,6 +67,16 @@ from .gui_multiplayer import MultiplayerMixin
 ICO_GIVEN: list = []
 
 
+def warm_modules():
+    """Import, in a worker, the modules the window loads on first use (the collection and its multiplayer check)."""
+    import importlib
+    for name in ('retrorecomp.compiled_games_view', 'retrorecomp.game_card_view'):
+        try:
+            importlib.import_module(name)
+        except Exception:          # the first use imports it again, on Tk's thread, and says what went wrong
+            pass
+
+
 class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, UpdatesMixin, OptionsMixin,
                  SharingMixin, ReportsMixin, AccountMixin, LeaderboardMixin, FirmwareSearchMixin, MissingCoversMixin,
                  EstimatesMixin, WelcomeMixin, FrontEndMixin, MultiplayerMixin):
@@ -123,7 +133,10 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         watch_windows(app)
         load_fonts()
         self.ui_font = family(self.language)
-        self.style = apply_rounded_theme(app, self.ui_font)
+        # Rounded corners (Options, read at start: the skin is made once per window): off draws the theme's plain rectangles.
+        self.rounded_at_start = preferences.get('rounded_corners', True) is not False
+        self.rounded_corners = tk.BooleanVar(value=self.rounded_at_start)
+        self.style = apply_rounded_theme(app, self.ui_font, rounded=self.rounded_at_start)
         _toolbar_styles(self.style)
         self.button_images = {}
         self.status = tk.StringVar(value=self.tr('ready'))
@@ -559,6 +572,10 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         if self.start_front_end.get():
             app.after(300, lambda: self.enter_front_end(fullscreen=self.start_front_end_fullscreen.get()))
         app.after(2500, self.refresh_player)
+        # The collection's module and the multiplayer code it imports (about 0.3 s) are read in a worker once the window is up,
+        # so that the first Compiled Games does not wait for them on Tk's thread (27 November 2026). Reading a module touches
+        # no widget.
+        app.after(2000, lambda: threading.Thread(target=warm_modules, name='warm-modules', daemon=True).start())
         app.after(2000, self.refresh_first_use)
         if self.discoveries_waiting:   # left waiting when the window last closed
             app.after(6000, self.send_new_discoveries)

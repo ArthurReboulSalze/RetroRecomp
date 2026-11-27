@@ -194,7 +194,8 @@ class OptionsMixin:
                                      ('startup_update_check', self.check_at_startup, 'tip_startup_update_check'),
                                      ('overwrite', self.overwrite, 'tip_overwrite'),
                                      ('force', self.force, 'tip_force'),
-                                     ('compress_games', self.compress_games, 'compress_games_note')):
+                                     ('compress_games', self.compress_games, 'compress_games_note'),
+                                     ('rounded_corners', self.rounded_corners, 'tip_rounded_corners')):
             control = checkbox(shared, key, variable, hint)
             if key == 'icon_tags':
                 self.icon_tags_control = control
@@ -204,6 +205,12 @@ class OptionsMixin:
                 # Why the option exists, in plain sight (not only in the hint): Windows Defender.
                 ttk.Label(shared, text=self.tr('compress_games_note'), style='Muted.TLabel', wraplength=760,
                           justify='left').pack(anchor='w', padx=(24, 0), pady=(0, 8))
+            if key == 'rounded_corners':
+                self.rounded_corners_control = control
+                # The skin is made when the window opens: the choice shows at the next start, and the note says so.
+                self.rounded_corners_note = ttk.Label(shared, text=self.tr('rounded_corners_note'), style='Muted.TLabel',
+                                                      wraplength=760, justify='left')
+                self.rounded_corners_note.pack(anchor='w', padx=(24, 0), pady=(0, 8))
 
         limits = ttk.Frame(common)
         limits.grid(row=4, column=0, sticky='w', pady=(12, 0))
@@ -239,10 +246,6 @@ class OptionsMixin:
         disk.grid(row=8, column=0, sticky='ew', pady=(14, 0))
         self.build_disk_options(disk)
 
-        # One page per machine, built from its profile (build_console_tab), all in a second tab: a list at the top picks
-        # the machine whose page shows below (one tab per machine no longer fitted the window).
-        self.build_console_pages(notebook, checkbox)
-
         # Over a list or a number field, the wheel scrolls the page rather
         # than changing the value under the pointer by accident.
         def guard(widget):
@@ -251,6 +254,11 @@ class OptionsMixin:
                     for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
                         child.bind(sequence, lambda event: (self.options_wheel(event), 'break')[1])
                 guard(child)
+        self.options_wheel_guard = guard          # also for the machine pages built later (build_console_page)
+
+        # One page per machine, built from its profile (build_console_tab), all in a second tab: a list at the top picks
+        # the machine whose page shows below (one tab per machine no longer fitted the window).
+        self.build_console_pages(notebook, checkbox)
         guard(notebook)
 
         buttons = ttk.Frame(panel)
@@ -271,17 +279,27 @@ class OptionsMixin:
         top.pack(fill='x')
         stack = ttk.Frame(holder)
         stack.pack(fill='both', expand=True)
-        pages = []   # (profile id, page title key, frame)
+        # (profile id, page title key, frame). A machine's page is built the first time it is shown (build_console_page):
+        # building all 27 when Options opened took about a second and a half on the owner's PC (27 November 2026), and
+        # closing Options destroyed them all again.
+        pages = [(profile.id, profile.options_tab, ttk.Frame(stack)) for profile in PROFILES]
+        built = set()
 
-        def page_of(profile):
-            def tab(key):
-                frame = ttk.Frame(stack)
-                pages.append((profile.id, key, frame))
-                return self.scrolled_page(frame)
-            return tab
-
-        for profile in PROFILES:
-            self.build_console_tab(profile, page_of(profile), checkbox)
+        def build(index):
+            """Build the page of machine `index` if it is not yet (a page another part of the window needs, a test)."""
+            if index in built or not 0 <= index < len(pages):
+                return
+            built.add(index)
+            frame = pages[index][2]
+            first = len(self.option_controls)
+            self.build_console_tab(PROFILES[index], lambda key, frame=frame: self.scrolled_page(frame), checkbox)
+            guard = getattr(self, 'options_wheel_guard', None)
+            if guard is not None:
+                guard(frame)
+            if self.busy or getattr(self, 'updating', False):      # what set_controls(False) did to the pages already built
+                for control, _ in self.option_controls[first:]:
+                    control.configure(state='disabled')
+        self.build_console_page = build
         picker = ttk.Combobox(top, state='readonly', width=36, values=[self.tr(key) for _, key, _ in pages])
         picker._retro_value_keys = [key for _, key, _ in pages]   # retranslated by refresh_language
         picker.pack(side='left')
@@ -289,6 +307,7 @@ class OptionsMixin:
         self.options_console_pages = pages
 
         def show(index):
+            build(index)
             for position, (_, _, frame) in enumerate(pages):
                 if position == index:
                     frame.pack(fill='both', expand=True)

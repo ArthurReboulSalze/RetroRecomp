@@ -525,9 +525,15 @@ class CompiledGamesView(ttk.Frame):
         self.log_label.pack_forget()
 
     def conversion_state(self):
-        if self.owner.busy:
+        """Called by drain() ten times a second: the buttons change only when the state does (configuring them anyway
+        redrew them each time, 27 November 2026)."""
+        busy = bool(self.owner.busy)
+        state='disabled' if self.running or self.owner.busy or self.owner.updating else 'normal'
+        if (busy, state) == getattr(self, '_conversion_shown', None):
+            return
+        self._conversion_shown = (busy, state)
+        if busy:
             if not self.stop_button.winfo_manager():self.stop_button.pack(side='left',padx=(6,0))
         else:self.stop_button.pack_forget()
-        state='disabled' if self.running or self.owner.busy or self.owner.updating else 'normal'
         self.scan_button.configure(state=state)
         self.add_button.configure(state=state)

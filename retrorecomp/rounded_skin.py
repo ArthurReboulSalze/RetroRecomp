@@ -24,7 +24,11 @@ The widgets stay ttk widgets: focus, Tab, the gamepad's focus moves, any text le
   otherwise filled the whole trough and could not be dragged (Arthur, 20 Nov 2026).
 
 `rounded_ui.Look.pill_button` (the Multiplayer window and the closing card) is one way of asking this skin for a button with explicit colours
-and radius: there is no second mechanism."""
+and radius: there is no second mechanism.
+
+**Rounded corners off** (Options, the owner's request of 27 November 2026, preference `rounded_corners`, read at start): the skin is
+`plain`. It makes no picture and no element: every style keeps its name and the theme's own square shapes (branding.apply_theme), a check box
+still takes the colour of the surface it stands on, and the cards and toggles of `rounded_ui.Look` are flat fills. Nothing else changes."""
 from __future__ import annotations
 
 import re
@@ -123,8 +127,8 @@ class Skin:
     count = 0
     OPAQUE = ('button', 'entry', 'combobox', 'spinbox', 'scrollbar')
 
-    def __init__(self, root, radius=RADIUS, scale=None):
-        self.root, self.radius = root, radius
+    def __init__(self, root, radius=RADIUS, scale=None, plain=False):
+        self.root, self.radius, self.plain = root, radius, plain
         self.style = ttk.Style(root)
         self.scale = scale if scale is not None else ui_scale(root)
         Skin.count += 1
@@ -314,6 +318,8 @@ class Skin:
         self.done[(name, kind)] = True
         self.records[(name, kind)] = (surface, radius, ring)
         self.surfaces[name] = surface
+        if self.plain:
+            return                                 # rounded corners off: the theme's own shapes, no picture
         self.originals[name] = self.base_layout(name) if kind != 'combobox' else []
         getattr(self, 'skin_' + kind)(name, surface if kind in self.OPAQUE else None, radius, ring)
         self.skinned[name] = self.style.layout(name)
@@ -327,7 +333,7 @@ class Skin:
             return self.follow_surface(name, kind, master)
         if (name, kind) not in self.done:
             self.skin(name, kind)                  # its own surface is the window's; another one gets a derived name below
-        if name in self.explicit:
+        if name in self.explicit or self.plain:   # plain: no corners, so no surface to follow
             return name
         surface = self.surface_of(master)
         if surface == self.surfaces.get(name):
@@ -592,21 +598,23 @@ def skin_of(widget):
     return getattr(root, '_rounded_skin', None)
 
 
-def apply_rounded_theme(app, font_family='Segoe UI'):
+def apply_rounded_theme(app, font_family='Segoe UI', rounded=None):
     """The converter window's theme: branding.apply_theme, then this skin over it (it reads the styles apply_theme set, so it
     goes last; calling this again rebuilds it). The skin stays out of branding.py, a host module of every profile, so it
-    moves no stamp: the games never draw these ttk widgets."""
+    moves no stamp: the games never draw these ttk widgets. `rounded` False: the plain skin (rounded corners off); None keeps
+    what the window has (a second call when the font changes)."""
     from .branding import apply_theme
     style = apply_theme(app, font_family)
-    install(app)
+    install(app, plain=None if rounded is None else not rounded)
     return style
 
 
-def install(root, radius=RADIUS):
-    """Skin `root`'s ttk styles from now on (and, with `refresh`, the widgets already built). Safe to call again: a second call rebuilds."""
+def install(root, radius=RADIUS, plain=None):
+    """Skin `root`'s ttk styles from now on (and, with `refresh`, the widgets already built). Safe to call again: a second call rebuilds.
+    `plain` True: rounded corners off (no picture); None: as the root's skin already is, else rounded."""
     skin = getattr(root, '_rounded_skin', None)
     if skin is None:
-        skin = root._rounded_skin = Skin(root, radius)
+        skin = root._rounded_skin = Skin(root, radius, plain=bool(plain))
         root.bind('<Destroy>', lambda event, root=root: _release(root, event), add='+')
     else:
         skin.rebuild()
