@@ -176,8 +176,6 @@ state-layout keys move too, with the other keys the rows name.
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
 | [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
 | [Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring](#game-boy-a-line-with-sprites-is-drawn-in-runs-and-the-adapters-sound-is-a-ring-190) | **the Game Boy game stamp** (`native/gb_ppu_object_span.h`, `gameboy_hardware.py`, `gameboy_runtime.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`); build unchanged | unchanged (the bytes of a state are the same) |
-| [Game Boy Color: an experimental profile, and the Game Boy modules take a variant](#game-boy-color-an-experimental-profile-and-the-game-boy-modules-take-a-variant-190) | **the Game Boy game stamp** (`retrorecomp/gameboy.py`, `gameboy_runtime.py`, `gameboy_host.py`, the stamp group `gameboy`); the Game Boy Color is a new machine with its own stamps | **the Game Boy host stamp** (`rrhk_gb.inc`: the Color's name and settings under `RR_GB_COLOR`); build unchanged | unchanged for the Game Boy (a Game Boy state is the same bytes; the Color has its own family) |
-| [Game Boy Color: Color-only fixes of the runtime, the public tests, the link cable](#game-boy-color-color-only-fixes-of-the-runtime-the-public-tests-the-link-cable-190) | **the Game Boy game stamp** (the variant argument in `gameboy.py`, `gameboy_hardware.py`, `gameboy_runtime.py`); the Game Boy Color own game stamp | no host stamp moves (the adapter did not change); build unchanged | unchanged |
 
 ## Mega Drive: a lower frame cost, the same pictures and sound (1.9.0)
 
@@ -299,6 +297,14 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
 both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
 
+## Game Boy Color: the F1 help offers no palette key (next release)
+
+A Color game keeps its own colours: its options window has no palette row and F5 only shows a notice, yet the F1 help still listed « F5 Monochrome / classic green ». It is listed
+now only in a monochrome Game Boy game (`native/hostkit/adapters/rrhk_gb.inc`, `rr_gb_help_lines`, the same test as the options row; `tests/test_gameboy_color.py`). Because the adapter is shared,
+**the Game Boy host stamp (`15e8fc20` to `55796f53`) and the Game Boy Color host stamp (`7784e231` to `5370911d`) move** (computed on the tree against main `e6bc5eec`, every machine compared;
+game and build stamps and every other machine unchanged). The Game Boy's stamps already move this release, so no export is converted once more for it. Quick states unchanged. The
+link-cable notes of the converter (the multiplayer note and the credits, eight languages) now name the Game Boy Color too; no stamp moves for them.
+
 ## PC Engine CD: the PC Engine's bridge learns a disc
 
 The PC Engine CD ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)) is the PC Engine's machine with a disc and the player's System Card: it shares the bridge to the pinned engine, the
@@ -389,6 +395,28 @@ rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
+## Every machine: CRT and LCD looks in F3 (next release)
+
+The host kit's F3 gains **CRT flat**, **CRT curved** and, on the handhelds, **LCD grid** (decision
+[D35](HOST_KIT.md#d35)). These are host files only:
+- `native/scanlines.h` and `native/scanline_sdl.h`;
+- `native/display_settings.h`, `native/retro_menu.h` and `native/game_options.h`;
+- `native/runtime_catalog.inc` (three names);
+- the kit's shell, `hostkit.h` and `hostkit_internal.h`;
+- the Master System / Game Gear, Game Boy and Game Boy Advance adapters.
+
+So the host stamp of every host-kit machine moves and its exports are upgraded (rebuilt), never rediscovered. The
+game part is unchanged.
+
+With a graphics card the two CRT looks are drawn by CRTS on Direct3D 11 or OpenGL (stage 2). That adds host files
+`native/hostkit/shell/rrhk_crt_shader.inc` and `rrhk_crts.inc`, which `retrorecomp/hostkit.py` stages beside the shell,
+and the notice `licenses/crt-lottes.md`, which every game on the host kit embeds.
+
+F3's notice now names every filter in the game's language (it was English, except « Pixels nets » in French).
+
+Preferences: `[<Console>.Video] filter` takes 4 (CRT flat), 5 (CRT curved) and 6 (LCD grid). An export of the
+previous release reads those values as sharp pixels and keeps working.
+
 ## ZX Spectrum: converted through batch and the window on a developer tree (next release)
 
 `zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`
@@ -396,6 +424,22 @@ and the converter window convert the Spectrum, and batch writes the report's `si
 lobby refuses a game. The profile stays `developer_only`: no installation lists it for players. Proof: Manic Miner converted with
 `batch --system zxs` from an empty scratch library: its report has the identity (engine pins, ROM, the top-level firmware record) and
 `lobby_check.game_from_report` accepts it (two seats).
+
+## ZX Spectrum: the floating bus is sampled at the I/O cycle's end (Arkanoid's speed) (next release)
+
+The owner found Arkanoid too fast and lopsided. Compared with MAME 0.289 (a private oracle) from the same snapshot with the same
+inputs, our machine ran Arkanoid's game loop twice a frame: its raster loop reads the floating bus until four FFh in a row, and
+sampled 3 T-states into the I/O cycle our reads landed on bitmap bytes where MAME's land on attributes, so the loop ended after
+about 30 lines instead of the whole paper. The sample moves to the cycle's end, 4 T-states after its start and its contention
+(`ZXS_FLOATING_SAMPLE`, as Clock Signal and MAME do). Proof: one keyboard read a frame as in MAME; the paddle's positions match
+MAME's on every frame of four authored holds (ball resting and in flight, left and right), one frame earlier; three more machine
+checks pin the cycle's end (112 in all). The resting-ball asymmetry (2 a frame left, accelerating to 13 right) is the game's, as in
+MAME. The 128K's first fetch stays the guide's (unverified; no panel game reads the floating bus there).
+
+**Stamps**: the ZX Spectrum's game stamp; nothing else. Exports of the machine (experimental, developers only) are rebuilt by a
+new conversion. The panel of eight passes again (0 instructions interpreted, native = reference, packed copy and quick states;
+Arkanoid plays to frame 2,037 with 303 distinct pictures); Manic Miner's single sweep of the ports ending in 1Fh reads screen
+bytes either way and it plays on; Elite stops on its title as before.
 
 ## ZX Spectrum: a game that polls the Fuller port gets an idle Fuller box (Match Day II) (next release)
 
@@ -471,6 +515,58 @@ hand (the Spectrum's touch of 4f7f1fef is gone), and an unchanged project still 
 **Stamps**: the game stamps of the ZX Spectrum, the SG-1000, the ColecoVision, the MSX, the MSX2, the MSX2+ and the Amstrad CPC
 (`shares:z80_chain_glue` gains `retrorecomp.resource_rebuild`; their builders' game CMake lines change); the compiled game is the
 same; nothing else.
+
+## MSX, MSX2, MSX2+: sprite flicker reduction, on the F2 options row (next release)
+
+The MSX family gets the option of the Master System, the SG-1000 and the ColecoVision, **off by default**, saved in `[MSX]
+reduce_sprite_flicker` of `datas/Retro-Recomp.ini`. Its key is not F5: on the MSX, as on every computer, F5 held is « fast loading »
+(`rrhk_computer.inc`), so the option lives on the F2 options row only. The shared piece `rrhk_sprite_option.inc` takes a row key for
+that (`RR_SPRITE_OPTION_KEY`, here `RRHK_ROW_SPRITES`, a key past the scancodes that no keyboard sends) and the row's and the help's
+words; the help line says « F2 Reduce sprite flicker (options) », in the five game languages. Turned on, both video chips also draw the
+sprites past the line limit, behind the others: the MSX1's TMS9918A past the fourth (`tms9918_set_all_sprites`), the V9938 past the
+fourth in sprite mode 1 and past the **eighth in sprite mode 2** (`msx_v9938_set_all_sprites`). It is a switch of the picture, not part of
+either chip's state: the fifth- and ninth-sprite flags, the collision flag and its coordinates, the quick states and the multiplayer digest
+are unchanged, and each player of a match chooses their own. Like the others, it can show a sprite a game meant the limit to hide.
+
+- **Off is the old picture**: Nemesis (MSX1) and Aleste (MSX2, Graphic 4, sprite mode 2), each converted from e6bc5eec and from this
+  branch, their delivered games replaying the conversion's play route: every one of the 3,599 frame rows (CPU, RAM, picture, sound, sample
+  count, PC) of each game is equal to main's.
+- **On changes only the picture**: with it on (the headless `--all-sprites 1`), CPU, RAM, sound and PC are equal on every row; the
+  pictures differ on 163 frames of Nemesis (its ship's explosion and an enemy, missing on the line its four spinning enemies share, show
+  whole) and 137 of Aleste (its explosions are drawn whole).
+- **The Master System, Game Gear, SG-1000 and ColecoVision are byte-identical**: the shared piece with its default key (F5) compiles to
+  the same machine code and the same strings as main's (its preprocessed text differs by one `(int)` cast, which C applies anyway); their
+  adapters are untouched.
+- Checks: 19 new V9938 fixtures in `msx2_checks_sprites.c` (sprite mode 2: the ninth and tenth drawn behind, S#0-S#6 the same with and
+  without; sprite mode 1 on the V9938: the fifth and sixth drawn, S#0 the same), `tests/test_tms9918_sprites.py` (the MSX row key, both
+  chips, nothing in the state). The game with the new adapter builds and runs windowed with the preference on and off (exit 0 at its frame
+  limit); the F2 row itself was not pressed by a test (the host-kit A/B harness does not take an MSX project yet).
+
+**Stamps** (measured with `compilation_inputs.role_stamps` against e6bc5eec): the game stamps of the MSX, the MSX2 and the MSX2+ move
+(the V9938's drawing, the MSX header, the headless option and the MSX build, which stages `rrhk_text.h`); the host stamp of every machine
+on the host kit moves (`hostkit.h` gains `RRHK_ROW_SPRITES`, the shared piece its row-key parameter, the MSX adapter its row, and the MSX
+profiles now hash `shares:hostkit_sprite_option` and `shares:hostkit_text`); no build stamp moves; no quick state changes.
+
+## SG-1000 and ColecoVision: sprite flicker reduction (F5), the Master System's option; one shared text (next release)
+
+The TMS9918A shows four sprites a line. The SG-1000 and the ColecoVision now have the Master System's **F5** option (off by default,
+saved in `[SG1000.Video]` / `[ColecoVision.Video] reduce_sprite_flicker`, the same strings, menu row, icon and help line, from one new
+piece `native/hostkit/adapters/rrhk_sprite_option.inc` that the Master System and Game Gear adapter uses too). Turned on, the chip also
+draws the sprites past the fourth, behind the others (`tms9918_set_all_sprites`, `native/tms9918`): a switch of the picture, not part of
+the chip's state, so the fifth-sprite and collision flags, the quick states and the multiplayer digest are unchanged, and each player of
+a match chooses their own (the Master System keeps sealing its option for the session). It can show a sprite a game meant the limit to
+hide (Bump 'N' Jump draws cars over its status line).
+
+- **Off is the old picture**: every frame row of Bump 'N' Jump over 2,100 frames is equal to the old chip's; with it on, CPU, RAM, sound
+  and PC are equal on every row and only the pictures differ (438 frames). During a jump every car is whole.
+- **MSX untouched** (the shared line renderer; the V9938 never asks): the final checks of an MSX1 and an MSX2 game are equal to main's.
+- **Master System and Game Gear**: behaviour and screens of the menus and help equal to main's (checked by building a game of each and
+  driving the old and new adapter on probe copies); multiplayer sealing read in the code, not run.
+- Checks: `tools/tms9918_sprite_selftest.py` (44), `tests/test_tms9918_sprites.py`, F5 in both player self-tests.
+
+**Stamps** (measured with `compilation_inputs.role_stamps`): the host stamp of every machine on the host kit moves (`retrorecomp.hostkit`
+stages the new piece); the game stamps of the SG-1000, the ColecoVision, the Master System, the Game Gear, the MSX, the MSX2 and the MSX2+
+move (the video chip's files, `shares:tms9918`, and the option's); no quick state changes.
 
 ## Z80 chain (MSX family, SG-1000, ColecoVision, ZX Spectrum, Amstrad CPC): no bound on the code learned from RAM, and the reports count windows and bodies apart (next release)
 
@@ -835,6 +931,20 @@ The conversion report's final checks add the native counters the release check r
 **Stamps** (`compilation_inputs.role_stamps`): no stamp of any other machine moves. The CPC's are new. A developer-only machine: there is no
 released export to upgrade.
 
+## Amstrad CPC (developer only): the pad's main button is the stick's default fire (1.9.0)
+
+A CPC stick's one button is on pin 6, which the machine reads at bit 4 of its row and calls « fire 2 »; the second button of a
+two-button stick is pin 7, bit 5, « fire 1 ». The pad's main button (A, the keyboard's D) pressed bit 5: a game that reads only the
+default line saw no fire from it (Gryzor: a press of bit 4 alone moves it on, bit 5 alone does nothing; Bomb Jack and Head over Heels
+read either). The main button now drives bit 4 and the second (B, S) bit 5 (`rrhk_cpc.inc`, `c_joystick`); its labels read « Fire »
+and « Second fire ». Found by the comparison with MAME's `cpc6128`. The routes the conversion plays fire on bit 4 too
+(`cpc_routes.FIRE`): every CPC play route's script changes in its fire bits (the same seed, events and frames), so a CPC conversion's
+play route, its hashes and its learned code differ from before; the panel's evidence was taken again (all eight: 0 interpreted,
+every `release_check` gate, the snapshot probe, the long routes, Bomb Jack on Windows equal to WSL, the session smoke tests).
+
+**Stamps** (`compilation_inputs.role_stamps`): the CPC's host stamp (`rrhk_cpc.inc`) and game stamp (`cpc_routes.py`) only. A
+developer-only machine: no released export.
+
 ## Amstrad CPC (developer only): the batch and the converter window convert it on a development tree, with its simulation identity (1.9.0)
 
 `AmstradCpcProfile.available()` is `cpc_conversion.developer_available()`: True when the converter runs from its sources, False in
@@ -1064,7 +1174,7 @@ runtime header, the patch of `gameboy_hardware.py`, the copy list of `gameboy_ru
 `rrhk_gb.inc`); the build stamp and every other machine unchanged. Existing Game Boy exports are converted again to get the faster drawing. Quick
 states unchanged (their layout and the bytes of a state are the same, no key moves), and so is a match: the digest of a frame is the same as before.
 
-## Game Boy Color: an experimental profile, and the Game Boy modules take a variant (1.9.0)
+## Game Boy Color: an experimental profile, and the Game Boy modules take a variant (next release)
 
 Arthur's go of 21 November 2026 (study first, then the path of [NEW_MACHINE.md](NEW_MACHINE.md); branch `spec/gbc-profile`). The Game Boy Color is the second machine of the Game Boy
 engine ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `gbc`, experimental, in development, not offered in a release yet. **What changes for the Game Boy.**
@@ -1089,7 +1199,22 @@ boot route and the fallback counted per route (Tetris DX 17,440 interpreter cycl
 Bros. Deluxe 36, Pokémon Pinball 0, Lufia 393,930 on the boot route; the play routes are in each report). `tools/gameboy_color_selftest.py`: 417 authored checks of the colour hardware against the register
 pages of Pan Docs (banks, palettes, both HDMA modes, the speed switch): documentation, not a console.
 
-## Game Boy Color: Color-only fixes of the runtime, the public tests, the link cable (1.9.0)
+## Game Boy and Game Boy Color: exports of 1.9.1 (next release)
+
+Measured on 27 November 2026 on the tree of main `dce6c18d` against the stamps recorded for 1.9.1
+(`assets/release-stamps.json`, `compilation_inputs.role_stamps`), for these two profiles only; the release measures every
+profile again on the tree it publishes.
+
+| Profile | Game stamp | Host stamp | Build stamp |
+| --- | --- | --- | --- |
+| Game Boy (`gb`) | moves (`a150c491` to `28a0098f`) | moves (`0fdc380c` to `9219189b`) | unchanged (`a8208da9`) |
+| Game Boy Color (`gbc`) | new (`0a11d439`) | new (`2f9bb2ba`) | new (`63d7fa20`) |
+
+Every Game Boy export of 1.9.1 is converted again once. The Game Boy quick-state format and cartridge saves are not changed
+by the Color's work (the two Color sections around this one). 1.9.1 has no Color export: a Color-only cartridge was refused, so there is
+nothing of the Color's to keep from it.
+
+## Game Boy Color: Color-only fixes of the runtime, the public tests, the link cable (next release)
 
 Steps 2 and 3 of [NEW_MACHINE.md](NEW_MACHINE.md) for the Game Boy Color (21 and 22 November 2026; branches `spec/gbc-qualify`, after `spec/gbc-profile`). **What changes for the Game Boy Color only:**
 `retrorecomp/gameboy_color_hardware.py` holds eight fixes of the pinned runtime that the Color's build receives and the Game Boy's never does (a test pins that): the CPU's lock-out of OAM during a transfer, the timer's

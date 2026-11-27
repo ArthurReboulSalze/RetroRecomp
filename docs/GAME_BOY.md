@@ -23,13 +23,13 @@ Contents
 | Status | Supported (profile `retrorecomp/systems/game_boy.py`, id `gb`); gate status in [QUALIFICATION.md](QUALIFICATION.md) |
 | Converted | The SM83 code of the cartridge, across ROM banks, into C compiled with the DMG runtime; what the translation cannot reach runs on a counted fallback |
 | Accepted files | `.gb` cartridge or a ZIP with exactly one cartridge (the reader also accepts the names `.bin` and `.rom`); 32 KiB to 8 MiB in 16 KiB banks. A headerless dump is recognised when its header checksum, declared size and title agree |
-| Refused | Game Boy Color-only cartridges (header flag `0xC0`). Color-compatible cartridges are accepted and run as a DMG: the generated main forces the runtime's model to `dmg` |
+| Refused | Game Boy Color-only cartridges (header flag `0xC0`): they go to the [Game Boy Color](GAME_BOY_COLOR.md) profile (experimental, not in a release yet). Color-compatible `.gb` cartridges are accepted and run as a DMG: the generated main forces the runtime's model to `dmg` |
 | Output | One standalone executable per game under `Export/Games/Game Boy` (a Windows x64 EXE, or a Linux ELF on Linux). The source ROM is read without modification and embedded in the executable |
 | Display | The 160 × 144 window of the original Game Boy, no PAL/NTSC choice (`video_modes = ("dmg",)`) |
 | Players | One on the console. In a multiplayer match, two consoles on a link cable ([below](#link-cable-in-multiplayer-190)), or one console in input sharing. No Light Phaser |
 | Firmware | None needed |
 | Saves | Battery RAM and one quick state, per game (see [States and saves](#states-and-saves)) |
-| Not supported | `.gbc`-only games, the link cable outside a multiplayer match and the four-player adapter, Game Boy Camera and Printer, Super Game Boy features |
+| Not supported | `.gbc` files (the [Game Boy Color](GAME_BOY_COLOR.md) profile's), the link cable outside a multiplayer match and the four-player adapter, Game Boy Camera and Printer, Super Game Boy features |
 
 RetroRecomp 0.12.0 introduced the profile. Conversion and regeneration use the same batch queue, readable game filenames, Windows
 version information and optional box-art icon process as the Sega profiles ([BOXART.md](BOXART.md)).
@@ -203,7 +203,7 @@ Shared Game Boy settings written with the old default keys by a release before 1
 mappings remain available.
 
 - **F1** help, **Shift+F1** reset, **P** pause, **F2** the keyboard and gamepad mapping layout and options.
-- **F3** cycles sharp pixels, Scale2x, scanlines and xBR smooth. **F4** cycles window, integer pixel-perfect fullscreen and aspect-fit
+- **F3** cycles sharp pixels, Scale2x, scanlines, xBR smooth, CRT flat, CRT curved and LCD grid ([VIDEO.md](VIDEO.md#crt-and-lcd-looks)). **F4** cycles window, integer pixel-perfect fullscreen and aspect-fit
   fullscreen.
 - **F5** switches immediately between pseudo black-and-white monochrome (the default) and classic green, without a menu or a pause.
   The choice is persistent; holding F5 does not repeatedly toggle it. The palette choice applies to DMG games.

@@ -7,7 +7,8 @@
  * share comes from rrhk_computer.inc, its text unchanged; what is the CPC's stays here (rules reviewed by the lead, 21 Nov 2026):
  *
  * - joystick 1 on keyboard row 9 from player 1's pad, joystick 2 on row 6 from player 2's (shared with the keys 6 5 R T G F, as
- *   on the machine: with no second pad nothing presses row 6); Fire 1 is the stick's fire 1 and SPACE, Start is SPACE, Select
+ *   on the machine: with no second pad nothing presses row 6); the main button is the stick's default fire (pin 6, bit 4, which
+ *   the CPC names « fire 2 »: a one-button stick has only it) and SPACE, the second button pin 7 (bit 5), Start is SPACE, Select
  *   RETURN, the directions the CPC's cursor keys too (the pad's keyboard aliases);
  * - the keyboard at its positions on the host's (rrhk_cpc_keys.h): alone, every key the pad table does not bind, never a
  *   Ctrl+Alt chord, a function key Retro-Recomp keeps or Escape (two ESC break a BASIC program); with full typing (Ctrl+Alt+K)
@@ -46,8 +47,8 @@ static const RrhkAction c_actions[C_ACTIONS] = {
    {"Down", L"Down", 1u << C_DOWN, RRHK_DIR, 0, {SDL_SCANCODE_DOWN, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_DPAD_DOWN}},
    {"Left", L"Left", 1u << C_LEFT, RRHK_DIR, 0, {SDL_SCANCODE_LEFT, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_DPAD_LEFT, SDL_CONTROLLER_BUTTON_DPAD_LEFT}},
    {"Right", L"Right", 1u << C_RIGHT, RRHK_DIR, 0, {SDL_SCANCODE_RIGHT, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT}},
-   {"Button 1", L"Fire 1", 1u << C_FIRE1, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_x},
-   {"Button 2", L"Fire 2", 1u << C_FIRE2, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_w},
+   {"Button 1", L"Fire", 1u << C_FIRE1, RRHK_FACE, 0, {SDL_SCANCODE_D, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_A}, NULL, SDLK_x},
+   {"Button 2", L"Second fire", 1u << C_FIRE2, RRHK_FACE, 0, {SDL_SCANCODE_S, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_B}, NULL, SDLK_w},
    {"Start (SPACE)", L"Start", 1u << C_START, RRHK_SYSTEM, 0, {SDL_SCANCODE_RETURN, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_START, SDL_CONTROLLER_BUTTON_START}},
    {"Select (RETURN)", L"Select", 1u << C_SELECT, RRHK_SYSTEM, 0, {SDL_SCANCODE_RSHIFT, SDL_SCANCODE_UNKNOWN}, {SDL_CONTROLLER_BUTTON_BACK, SDL_CONTROLLER_BUTTON_BACK}},
    {"Pause", L"Pause", 1u << C_PAUSE, RRHK_SYSTEM, 0, {SDL_SCANCODE_UNKNOWN, SDL_SCANCODE_UNKNOWN}, {C_NO_PAD, C_NO_PAD}}};
@@ -89,14 +90,16 @@ static int c_bound(SDL_Scancode k) {
    return 0;
 }
 
-/* The joystick lines of a pad word (CPC_JOY_* bits, a bit set: pressed). */
+/* The joystick lines of a pad word (CPC_JOY_* bits, a bit set: pressed). The main button is the stick's default fire, pin 6, read
+ * at bit 4 (CPC_JOY_FIRE2: the CPC's « fire 2 », the one button of a one-button stick; Gryzor reads it alone); the second button
+ * is pin 7, bit 5 (CPC_JOY_FIRE1). */
 static uint8_t c_joystick(uint16_t pad) {
    return (uint8_t)(((pad & C_BIT(C_UP)) ? CPC_JOY_UP : 0) | ((pad & C_BIT(C_DOWN)) ? CPC_JOY_DOWN : 0) |
                     ((pad & C_BIT(C_LEFT)) ? CPC_JOY_LEFT : 0) | ((pad & C_BIT(C_RIGHT)) ? CPC_JOY_RIGHT : 0) |
-                    ((pad & C_BIT(C_FIRE1)) ? CPC_JOY_FIRE1 : 0) | ((pad & C_BIT(C_FIRE2)) ? CPC_JOY_FIRE2 : 0));
+                    ((pad & C_BIT(C_FIRE1)) ? CPC_JOY_FIRE2 : 0) | ((pad & C_BIT(C_FIRE2)) ? CPC_JOY_FIRE1 : 0));
 }
 
-/* The pad's keyboard aliases of player 1: the cursor keys, SPACE (Fire 1, Start), RETURN (Select). */
+/* The pad's keyboard aliases of player 1: the cursor keys, SPACE (the main fire, Start), RETURN (Select). */
 static void c_pad_keys(uint8_t held[CPC_KEY_ROWS], uint16_t pad) {
    if (pad & C_BIT(C_UP)) c_press(held, CPC_KEY_UP);
    if (pad & C_BIT(C_DOWN)) c_press(held, CPC_KEY_DOWN);
@@ -262,8 +265,8 @@ static bool c_state_path(wchar_t *path, size_t capacity) { return cpc_game_state
 
 static void c_help_controls(RrhkUi *ui, const RrhkMenuCtx *ctx, int y) {
    (void)ui;
-   rrhk_menu_line(ctx, y, rrhk_tr("Arrows: joystick 1; D: fire 1 (and SPACE), S: fire 2; player 2's pad: keys 6 5 R T G F",
-                                  "Fleches : manette 1 ; D : tir 1 (et ESPACE), S : tir 2 ; manette 2 : touches 6 5 R T G F"));
+   rrhk_menu_line(ctx, y, rrhk_tr("Arrows: joystick 1; D: fire (and SPACE), S: second fire; player 2's pad: keys 6 5 R T G F",
+                                  "Fleches : manette 1 ; D : tir (et ESPACE), S : second tir ; manette 2 : touches 6 5 R T G F"));
    rrhk_menu_line(ctx, y + RR_MENU_LINE, rrhk_tr("Enter: SPACE; right Shift: RETURN; Ctrl+Alt+K: the CPC keyboard (and ESC)",
                                                  "Entree : ESPACE ; Maj droite : RETURN ; Ctrl+Alt+K : le clavier CPC (et ESC)"));
 }

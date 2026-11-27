@@ -10,7 +10,9 @@
 #include "console16_video.h"
 #include "platform_io.h"
 #include "runtime_i18n.h"
+#include "display_settings.h"
 #include "hostkit/hostkit_internal.h"
+#include "rrhk_crt_shader.inc"     /* D35 stage 2: the CRT looks on the graphics card */
 
 /* Scale2x into a store of store_w x store_h source pixels (the target is twice that, store_w * 2 pixels a row). */
 static void scale2x_store(const uint32_t *source, int pitch, int store_w, int store_h, int width, int height, uint32_t *target) {
@@ -121,6 +123,16 @@ void rrhk_present_picture(RrhkRun *run) {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
         return;
     }
+    /* D35 stage 2: a CRT look on Direct3D 11 or OpenGL is drawn by the graphics card from the machine's own picture (its
+     * pass uploads it); otherwise, or when the pass is unavailable, the stage-1 look below */
+    if ((rrhk.filter == RR_FILTER_CRT_FLAT || rrhk.filter == RR_FILTER_CRT_CURVED) && !run->software && !run->crt_pass_off) {
+        const SDL_Rect dst = rrhk_game_rect(ren);
+        const int rows = m->pixel_pitch ? m->pixel_pitch() : m->max_width;     /* the picture's row pitch, in pixels */
+        if (rrhk_crt_pass_draw(ren, pixels, width, height, rows, &dst, m->raster_height(), rrhk.filter == RR_FILTER_CRT_CURVED)) {
+            rrhk_pointer_draw(ren, &dst);
+            return;
+        }
+    }
     if (m->pixel_pitch) {
         /* The rows of the picture are pixel_pitch apart; only the visible part is uploaded (the buffer may be smaller than the store). */
         pitch = m->pixel_pitch();
@@ -146,8 +158,13 @@ void rrhk_present_picture(RrhkRun *run) {
     int texture_scale = doubled(run) ? 2 : 1;
     SDL_Rect source = {0, 0, width * texture_scale, height * texture_scale};
     SDL_Texture *smooth = rrhk.filter == 1 ? rr_xbr_update(ren, &run->xbr, pixels, width, height, pitch) : NULL;
+    /* D35: the CRT and LCD looks draw the picture themselves; one that cannot (a size the LCD grid does not fit, no texture)
+     * leaves it to the plain copy */
+    const int look = rrhk.filter == RR_FILTER_CRT_FLAT ? RR_LOOK_CRT_FLAT : rrhk.filter == RR_FILTER_CRT_CURVED ? RR_LOOK_CRT_CURVED :
+                     rrhk.filter == RR_FILTER_LCD ? RR_LOOK_LCD : -1;
     if (smooth) SDL_RenderCopy(ren, smooth, NULL, &dst);
-    else SDL_RenderCopy(ren, run->tex, &source, &dst);
+    else if (look < 0 || !rr_look_draw(ren, &run->look, run->tex, &source, &dst, m->raster_height(), look, run->software))
+        SDL_RenderCopy(ren, run->tex, &source, &dst);
     /* 1.7.6: one scanline per line of the console (raster_height), not per row of a raised internal resolution (visible_height):
      * a 240-line game drawn at 2x or 4x keeps its 240 dark lines, which show on any screen of 480 rows or more */
     if (rrhk.filter == 3) rr_scanlines_draw(ren, &run->scanlines, &dst, m->raster_height());

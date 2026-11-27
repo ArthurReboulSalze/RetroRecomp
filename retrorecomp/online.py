@@ -38,7 +38,9 @@ import time
 import urllib.error
 import urllib.request
 
-from . import __version__, path_profiles
+from . import __version__, path_profiles, tls_roots
+
+tls_roots.ensure()      # Linux: find the distribution's CA bundle before the first HTTPS request
 
 # RETRO_RECOMP_SERVICE=<base URL> points a test converter at another server
 # (an empty value turns the service off).
@@ -212,6 +214,7 @@ def _call(method: str, route: str, *, payload: dict | None = None, body: bytes |
     except urllib.error.HTTPError as error:
         response = error
     except OSError as error:
+        tls_roots.note_failure(error)
         raise ServiceConnectionError() from error
     try:
         with response:

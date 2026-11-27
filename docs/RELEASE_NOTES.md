@@ -1,3 +1,33 @@
+# RetroRecomp, next release (in preparation)
+
+## Game Boy Color opens as an experimental machine ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md))
+
+- Converts `.gbc` cartridges, and Color-only cartridges in a `.gb` or a single-ROM ZIP, on the Game Boy's engine in the
+  colour hardware's model; a Color-enhanced cartridge kept as a `.gb` stays with the Game Boy.
+- MBC1, MBC3 with its clock and MBC5; battery saves and F8 / F9 quick states, a family of their own. No boot ROM is needed.
+- Not converted: infrared, the MBC7 tilt sensor, the Printer, the Camera, Super Game Boy borders. A rumble cartridge
+  converts, but the pad does not vibrate.
+- Native code: on a panel of seven cartridges, the four final routes of each report 0 interpreter cycles; code run one
+  instruction at a time in writable memory is counted apart and is not native.
+- CPU check: the generated code equals the reference interpreter in lock-step over 30 boot frames and 240 frames of each
+  input route (all 3,600 frames on two of the seven), and the delivered file passes its replay.
+- Windows and Linux: four of the seven games give equal per-frame traces on Windows and on Debian 13 in WSL.
+- Hardware tests: eight fixes of the engine for the Color only; 115 of 116 public Mooneye and blargg test ROMs pass,
+  `cgb-acid2` differs on 40 of 23,040 pixels. These are tests, not a comparison with a console.
+- Multiplayer: shared controls, or two Color consoles of the same game on a link cable (not with a Game Boy). Checked on
+  one PC; a game's own two-player screen and two PCs are not proved.
+- Experimental: the owner has not played the games yet. Hardware fidelity, gameplay validation and physical latency are not
+  established.
+
+**Your exports and quick states.** The Game Boy's game and host stamps move, so every Game Boy export of 1.9.1 is converted
+again once; its cartridge saves and quick-state format are not changed by this work
+([UPGRADES.md](UPGRADES.md#game-boy-and-game-boy-color-exports-of-191-next-release)).
+
+None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still
+counted and shown per CPU and per device wherever it is used.
+
+---
+
 # RetroRecomp v1.9.1 — Sharing fix, the podium's shop items and a Discord button
 
 - **Shared base: the automatic sending works again.** In 1.9.0 it stopped with « 'int' object is not iterable » once a

@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
+#include "display_settings.h"
 #include "hostkit/hostkit.h"
 
 /* What a game links beside the kit and this fake does not need (as tools/hostkit_capabilities/checks.c). */
@@ -260,6 +261,11 @@ static RrhkMachine machine = {
     .side_effects = side_effects, .session_option = session_option, .session_options = session_options, .frame_start = frame_start};
 const RrhkMachine *rrhk_adapter(void) { return &machine; }
 
+/* SESSION_FAKE_FILTER=n: this copy shows its picture with filter n (HOST_KIT D35: 5 is the curved CRT look). Presentation only:
+ * the digests of a match must not change with it, nor differ between two seats that chose different filters. */
+static int look_filter;
+static void look_settings(RrhkUi *ui) { ui->filter = look_filter; }
+
 int main(int argc, char **argv) {
     (void)argc; (void)argv;
     SDL_SetMainReady();
@@ -309,6 +315,8 @@ int main(int argc, char **argv) {
     const char *stick = getenv("SESSION_FAKE_STICKS");
     sticks = stick && *stick == '1';
     if (sticks) machine.analog_sticks = 2;
+    const char *look = getenv("SESSION_FAKE_FILTER");
+    if (look && atoi(look) > 0 && atoi(look) < RR_FILTERS) { look_filter = atoi(look); machine.settings_loaded = look_settings; }
     const char *own_loop = getenv("SESSION_FAKE_DRIVEN");
     driven = own_loop && *own_loop == '1';
     int status = 0;

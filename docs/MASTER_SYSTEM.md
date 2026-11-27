@@ -150,7 +150,7 @@ Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY a
   reticle (cross or dot, size 1 to 5, red, white or green) is an F2 page and an overlay only: it never changes shot
   coordinates or the framebuffer. A red target tag is added to the icon of games that support the gun. See
   [LIGHT_PHASER.md](LIGHT_PHASER.md).
-- **Display.** Whole-pixel scaling, centred; F3 cycles Sharp pixels, Scale2x, Scanlines and xBR smooth; F4 the display mode.
+- **Display.** Whole-pixel scaling, centred; F3 cycles Sharp pixels, Scale2x, Scanlines, xBR smooth, CRT flat and CRT curved ([VIDEO.md](VIDEO.md#crt-and-lcd-looks)); F4 the display mode.
   When a game blanks the left 8 columns the view crops them but keeps the scale of the full picture so the image does not
   jump (`game_rect` in the adapter). The picture is 256 × 192.
 - **Audio.** Stereo ring with 256-tap sinc conversion to the device rate; volume, mute and device choice are the host kit's.

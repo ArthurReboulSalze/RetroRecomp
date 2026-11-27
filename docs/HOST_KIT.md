@@ -165,7 +165,7 @@ int rrhk_main(const RrhkMachine *machine, int argc, char **argv); /* windowed or
 
 Shell, one implementation for every family (`hosts.md:307-316`): SDL init and
 hints chosen once per OS, window, icon, saved window rect, filters (sharp, xBR,
-Scale2x, scanlines), integer and fit modes, one pacing loop with audio-lead
+Scale2x, scanlines, and the CRT and LCD looks of [D35](#d35)), integer and fit modes, one pacing loop with audio-lead
 recovery, one audio output (callback ring, device-native format, optional FIR
 source conversion, adaptive reserve), pad hotplug and slots, keyboard defaults
 that follow the layout, one stick threshold, shift twin, autofire, quit and
@@ -413,7 +413,7 @@ X68000 too, without asking again**.
   (`tools/hostkit_players_selftest.py`, `tests/test_hostkit_players.py`).
 * <a id="d14"></a>**D14 — On a 3D machine, F3 opens a graphics menu** (owner's decision of 5 November 2026; **implemented in
   1.7.0**, see [section 2.4](#24-sticks-the-graphics-page-larger-pictures-rumble-and-discs-170)). On the 2D machines F3 cycles the
-  picture filters (sharp pixels, xBR, Scale2x, scanlines) and shows the name for 1.8 s, unchanged. On a machine whose adapter
+  picture filters (sharp pixels, xBR, Scale2x, scanlines; the CRT and LCD looks since [D35](#d35)) and shows the name for 1.8 s, unchanged. On a machine whose adapter
   declares graphics options (the PlayStation first, the Nintendo 64 later) the same key opens the kit's graphics page
   (`RRHK_MENU_GRAPHICS`), where the player switches the options of that machine's renderer (internal resolution, dithering,
   aspect ratio and the like), then the kit's own Filter row, then Restore defaults. The page is the kit's (one menu for every
@@ -678,6 +678,56 @@ X68000 too, without asking again**.
   turn plate at the top right (« Turn: Nadia », gold « Your turn ») is there for every seat as long as the match is in turns,
   from who holds the controls (`rrhk_session_holder`), bright for two seconds after a change; the options row **Turn badge**
   (in a session, `[Interface] turn_badge`) hides it. No pad combination for the pass yet.
+* <a id="d35"></a>**D35 — CRT and LCD looks in F3** (owner's go of 27 November 2026: players asked for CRT shaders like
+  RetroArch's; study in two stages, both approved; this is stage 1, without a shader). Three filters join F3's list after xBR:
+  **CRT flat** (4), **CRT curved** (5) and, on a machine that declares `RrhkMachine.lcd_screen` (Game Boy, Game Boy Color,
+  Game Boy Advance, Game Gear), **LCD grid** (6); on the 3D machines they are values of the graphics page's Filter row. They
+  are drawn with SDL_Renderer only (`native/scanlines.h` for the overlays' values, `native/scanline_sdl.h` `rr_look_draw` for
+  the drawing), on every driver, from the picture the kit already uploads:
+  * **CRT**: the picture with sharp lines and a soft horizontal blend, a brightness boost (x1.45, clipped) for what the mask and
+    the gaps take, one Gaussian beam per console line (`raster_height`, as the scanlines since D27; no gaps below two output rows
+    a line nor above 300 lines a frame: interlaced TV modes, 31 kHz monitors and the ST's mono screen had too fine lines), a glow
+    (an eighth-size copy stretched back and added), a vignette and rounded corners, then flat or through crt-lottes' curve (a
+    48 x 36 grid of triangles, `SDL_RenderGeometry`, placed by solving the warp backwards), then the phosphor mask in screen
+    space (aperture grille for flat, slot mask for curved). On SDL's software renderer (no graphics card) the CRT keeps the
+    picture, the beams and the mask and is drawn flat: the software renderer samples triangles nearest and the curved lines step.
+  * **LCD grid**: the picture in whole cells with a dim gap on each cell's right and bottom and three faint colour columns;
+    cells of at least three pixels, otherwise the picture is shown plain and the Filter row says « (not at this size) ».
+  * Presentation only: the looks read the finished picture and write the back buffer; nothing enters the machine, its state,
+    the quick states, the netplay digest or the inputs, and each player keeps their own look in a match. The overlays are made
+    once per size (the mask at the output's size), never read back. `[<Console>.Video] filter` takes 4 to 6; the previous
+    release reads them as sharp pixels; the LCD grid saved for a machine without an LCD screen reads as sharp pixels.
+  * Our own code (MIT): beams, mask, vignette and the warp's formula are common techniques (the warp is crt-lottes', public
+    domain). Stage 2 (real shaders on the graphics card, crt-lottes-fast and a public-domain or MIT LCD shader) keeps these looks
+    as its fallback. ROM-free checks: `tools/crt_look_selftest.py` (overlays, curve, F3's cycle, whole looks drawn by the
+    software renderer the light and the full way), `tools/hostkit_capabilities_selftest.py` (no picture and a 0 x 0 picture
+    under every filter of the cycle). Physical latency stays unmeasured; no frame cost was timed.
+  * **Stage 2, the graphics card** (owner's go of 27 November 2026; the lead's choice of the same night: Direct3D 11 stays the
+    Windows backend). The CRT looks are drawn by a pass of our own inside SDL's renderer, with CRTS (Timothy Lottes'
+    crt-lottes-fast, Unlicense) ported into one source for HLSL and GLSL (`native/hostkit/shell/rrhk_crts.inc`):
+    * **Backends**: Direct3D 11 on Windows (`SDL_RenderGetD3D11Device`, HLSL compiled at first use by the system's
+      `d3dcompiler_47.dll`, loaded from System32 only, feature level 10.0 or more) and OpenGL 2.0 or more elsewhere, or on Windows when the player forces it
+      (GLSL 1.20 through `SDL_GL_GetProcAddress`). Code: `native/hostkit/shell/rrhk_crt_shader.inc`, staged beside the shell.
+    * **How it draws**: after `SDL_RenderFlush` the pass saves every state it sets and puts it back, so SDL's own cache stays
+      true and the menus, notices and chat are drawn after it unchanged. The picture goes into the pass's own texture, once a
+      frame, instead of the kit's.
+    * **The looks**: flat is CRTS without its warp, with the light aperture grille; curved has the warp (0.031, 0.041) and the
+      shadow mask; both use the 8-tap filter and the tone map that keeps the brightness. The beams are thinned to no gaps
+      (thin 0.5) above 300 lines a frame or below two output rows a line, as in stage 1.
+    * **Where stage 1 is drawn instead**: Direct3D 12 (Variable refresh), SDL's software renderer, OpenGL ES, a CPU
+      rasterizer (Microsoft Basic Render Driver, Mesa llvmpipe / softpipe), feature level below 10.0, no
+      `d3dcompiler_47.dll`, or a shader the driver refuses. A `[host] CRT look:` line on stderr says which; it is never
+      retried in that run. The LCD grid stays stage 1's.
+    * **Presentation only**, as stage 1. Notice: `licenses/crt-lottes.md`, which also gives why no GPL shader and why not
+      crt-geom-mini.
+    * **Checks**: `tools/crt_shader_selftest.py`, hidden test-run windows. It runs the pass on Direct3D 11 and OpenGL, and
+      stage 1's three looks on Direct3D 11, Direct3D 12 and OpenGL (`RETRORECOMP_HOST_TEST_CRT_PASS=0` turns the pass off for
+      a test run only). It checks the picture is there and stays inside the game's rectangle, the curved corner is black, the
+      brightness holds, and the renderers agree with each other.
+  * Since stage 2, F3's notice names every filter in the five game languages (before, only « Sharp pixels » was translated,
+    and only to French). Open: the mask and frame overlays are made on the CPU at the output's size when it changes (about
+    8 million texels at 4K, one hitch per resize); a small tiled mask would avoid it. The pass compiles its shaders on the first
+    CRT frame (a short hitch, once a run); compiling them when the run opens would avoid it.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

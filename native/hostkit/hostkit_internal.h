@@ -47,6 +47,9 @@ typedef struct RrhkRun {
     bool device_lost;              /* the device the sound plays on was removed */
     RrScanlineMask scanlines;
     RrXbr xbr;
+    RrLook look;                   /* the CRT and LCD looks' overlays and targets (HOST_KIT D35) */
+    bool crt_pass_off;             /* a hidden-window test run asked for the stage-1 looks on the graphics card (D35's checks) */
+    bool software;                 /* SDL's software renderer (no graphics card, or the dummy driver of the converter's checks): the CRT is drawn light */
     /* One iteration is begin (events, state requests, pads, the machine's frame) then end (sound, picture, pacing); a guest
      * that owns the loop runs between the end of one and the begin of the next. What the two halves share: */
     bool ran;                      /* this iteration ran the machine (no menu, no pause) */
@@ -265,7 +268,8 @@ void rrhk_ring_set_base(double base);   /* 1.7.7 (D30) */
 
 /* events.c */
 void rrhk_poll_events(RrhkRun *run);
-bool rrhk_set_filter(RrhkRun *run, int filter);   /* a new texture for the filter, kept in the preferences; false: no texture */
+bool rrhk_set_filter(RrhkRun *run, int filter);
+void rrhk_crt_pass_release(void);   /* D35 stage 2: the graphics card pass's resources, before the renderer goes */   /* a new texture for the filter, kept in the preferences; false: no texture */
 
 /* main.c, 1.7.6 (HOST_KIT D29): a Linux game's launcher `<game>.desktop`, healed after its folder moved. The text: -1 not ours
  * (no X-RetroRecomp-Identity line), 0 ours and current (or a path too long to write), 1 ours and stale: `healed` (malloc'd) has

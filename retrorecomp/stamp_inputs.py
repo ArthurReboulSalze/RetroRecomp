@@ -118,6 +118,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'game_details','game_metadata','game_card_view','rom_sources',
                                # Sharing discoveries never runs during a conversion.
                                'knowledge_build','knowledge_exchange','online','shared_batch',
+                               # Finds the system CA bundle for the frozen Linux converter's own HTTPS requests; no game reads it.
+                               'tls_roots',
                                # Removes build folders once a game is published;
                                # it never changes what a game is or does.
                                'build_cleanup',
@@ -204,12 +206,13 @@ HOST_NATIVE = frozenset((
     'hostkit/shell/rrhk_audio.c', 'hostkit/shell/rrhk_events.c', 'hostkit/shell/rrhk_input.c',
     'hostkit/shell/rrhk_main.c', 'hostkit/shell/rrhk_menu.c', 'hostkit/shell/rrhk_options.c',
     'hostkit/shell/rrhk_pointer.c', 'hostkit/shell/rrhk_ring.c', 'hostkit/shell/rrhk_session.inc', 'hostkit/shell/rrhk_chat.inc',
+    'hostkit/shell/rrhk_crt_shader.inc', 'hostkit/shell/rrhk_crts.inc',
     'hostkit/shell/rrhk_timing.c',
     'hostkit/shell/rrhk_video.c',
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
     'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc', 'hostkit/adapters/rrhk_keypad.inc',
-    'hostkit/adapters/rrhk_text.h',
+    'hostkit/adapters/rrhk_text.h', 'hostkit/adapters/rrhk_sprite_option.inc',
     # The Amstrad CPC's (in development, its adapter to come): the boot key sequence player and its key table.
     'hostkit/adapters/rrhk_boot_keys.h', 'hostkit/adapters/rrhk_cpc_keys.h')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
@@ -277,6 +280,9 @@ NOT_INPUTS = (
     # The box filter of the sound chips (levels over guest cycles to samples): its header is the group `shares:audio_box` (the SG-1000 is the
     # first machine to build with it). tools/audio_box_selftest.py builds its checks, never in a game.
     'native/audio_box_checks.c',
+    # tools/crt_look_selftest.py: the checks of the CRT and LCD looks (HOST_KIT D35; their code is in scanlines.h and scanline_sdl.h),
+    # never in a game.
+    'native/crt_look_checks.c',
     # The Z80 chain's CPU state and the quick-state file around the shared envelope: their headers are the groups `shares:z80_chain_state` and
     # `shares:state_file` (the SG-1000 is the first machine to build with them). tools/z80_chain_state_selftest.py builds their checks, never in a game.
     'native/state_file_checks.c',
@@ -290,6 +296,7 @@ NOT_INPUTS = (
     # tools/upd765_selftest.py and tools/cpc_hardware_selftest.py: the Amstrad CPC's chip checks, never in a game.
     'native/upd765/upd765_checks.c', 'native/cpc_machine/cpc_hardware_checks.c',
     'native/z80_learned_set_checks.c',   # tools/z80_learn_cap_selftest.py: the learned-window set has no bound, never in a game
+    'native/tms9918_sprite_checks.c',   # tools/tms9918_sprite_selftest.py: the sprite-flicker switch, never in a game
     'native/z80_contention_checks.c',   # tools/z80_contention_selftest.py: contention, emitter against reference, never in a game
     'native/z80_contention_gate.c',   # tools/z80_contention_loop_selftest.py: an authored contention rule for the step loop's lines, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
@@ -424,6 +431,8 @@ INPUTS = _resolve({
         'native/hostkit/shell/rrhk_ring.c',
         'native/hostkit/shell/rrhk_session.inc',
         'native/hostkit/shell/rrhk_chat.inc',
+        'native/hostkit/shell/rrhk_crt_shader.inc',
+        'native/hostkit/shell/rrhk_crts.inc',
         'native/hostkit/shell/rrhk_timing.c',
         'native/hostkit/shell/rrhk_video.c',
         'native/audio_checks.c',
@@ -1297,9 +1306,15 @@ INPUTS = _resolve({
     'shares:hostkit_keypad': (
         'native/hostkit/adapters/rrhk_keypad.inc',
     ),
+    # The player's « sprite flicker reduction » (F5: its key, menu row, help line and preference), one text for the adapters whose video
+    # chip drops sprites past a per-line limit (Master System, Game Gear, SG-1000, ColecoVision; the MSX family on its F2 row only, F5
+    # being its fast loading). Host role (in HOST_NATIVE above).
+    'shares:hostkit_sprite_option': (
+        'native/hostkit/adapters/rrhk_sprite_option.inc',
+    ),
     # One adapter text in the five game languages, read for the current game language (docs/HOST_KIT.md 2.6): header only, included by
     # the adapters whose own words are not in the catalogue yet; hashed by the machines that include it (the ColecoVision, through the
-    # on-screen keypad). Host role (in HOST_NATIVE above).
+    # on-screen keypad; the Amstrad CPC; the MSX family, its sprite option's row). Host role (in HOST_NATIVE above).
     'shares:hostkit_text': (
         'native/hostkit/adapters/rrhk_text.h',
     ),

@@ -399,6 +399,71 @@ static void scroll(void)
     check("spr2-scroll unscrolled line 50 empty", px(50, 100), palv(0));
 }
 
+/* The player's « sprite flicker reduction » (F5, msx_v9938_set_all_sprites): the picture also shows the sprites past the line limit,
+ * behind the others, and nothing the program reads changes. Each fixture runs twice, without and with the switch, and compares the
+ * status registers S#0-S#6 of the two runs. */
+static long statuses[2][7];
+
+static void flicker2(int on)
+{
+    /* Sprite mode 2 (G4): sprites 0-7 side by side at X = 16 i, colours 1-8; sprite 8 (colour 9) at X = 128 and sprite 9 (colour 10)
+     * at X = 130, which overlap (they would collide if the chip drew them); sprite 10 (colour 11) at X = 0, under sprite 0. */
+    setup(0x06, 0);
+    msx_v9938_set_all_sprites(on);
+    for (int i = 0; i < 8; ++i) spr(i, 49, (uint8_t)(16 * i), 0, (uint8_t)(i + 1));
+    spr(8, 49, 128, 0, 9);
+    spr(9, 49, 130, 0, 10);
+    spr(10, 49, 0, 0, 11);
+    end_list(11);
+    run();
+    for (int i = 0; i < 7; ++i) statuses[on][i] = status(i);
+    check(on ? "spr2-flicker on S#0 (ninth = 8, no collision)" : "spr2-flicker off S#0 (ninth = 8, no collision)", statuses[on][0], 0x48);
+    check(on ? "spr2-flicker on eighth drawn" : "spr2-flicker off eighth drawn", px(50, 16 * 7 + 3), palv(8));
+    check(on ? "spr2-flicker on ninth drawn" : "spr2-flicker off ninth not drawn", px(50, 129), on ? palv(9) : palv(0));
+    check(on ? "spr2-flicker on ninth in front of the tenth" : "spr2-flicker off tenth not drawn", px(50, 133), on ? palv(9) : palv(0));
+    check(on ? "spr2-flicker on tenth past the ninth" : "spr2-flicker off tenth not drawn either", px(50, 137), on ? palv(10) : palv(0));
+    check(on ? "spr2-flicker on sprite 0 in front of the eleventh" : "spr2-flicker off sprite 0", px(50, 3), palv(1));
+    msx_v9938_set_all_sprites(0);
+}
+
+static void flicker1(int on)
+{
+    /* Sprite mode 1 on the V9938 (Graphic 2, as mode1 above): six sprites on line 50, the fifth and sixth past the limit. */
+    msx_init(&m, MSX_LINES_NTSC);
+    msx_set_v9938(&m, &vdp);
+    msx_v9938_set_all_sprites(on);
+    reg(0, 0x02); reg(1, 0x40); reg(2, 0x06); reg(3, 0xFF); reg(4, 0x03); reg(5, 0xEF); reg(11, 0); reg(6, 0x0F);
+    reg(7, 0); reg(8, 0); reg(9, 0); reg(23, 0);
+    reg(16, 0);
+    for (int i = 0; i < 16; ++i) {
+        msx_out(&m, 0x9A, (uint8_t)(((i & 7) << 4) | ((i >> 3) + 1)));
+        msx_out(&m, 0x9A, (uint8_t)((i >> 1) & 7));
+    }
+    fill(0x7800, 0xFF, 8);
+    for (int i = 0; i < 6; ++i) {
+        uint8_t a[4] = { 49, (uint8_t)(16 * i), 0, (uint8_t)(i + 1) };
+        poke(0x7780 + 4u * i, a, 4);
+    }
+    fill(0x7780 + 24, 208, 1);
+    run();
+    long s0 = status(0);
+    check(on ? "spr1-flicker on S#0 fifth sprite" : "spr1-flicker off S#0 fifth sprite", s0, 0x44);
+    check(on ? "spr1-flicker on fifth drawn" : "spr1-flicker off fifth not drawn", px(50, 67), on ? palv(5) : palv(0));
+    check(on ? "spr1-flicker on sixth drawn" : "spr1-flicker off sixth not drawn", px(50, 83), on ? palv(6) : palv(0));
+    msx_v9938_set_all_sprites(0);
+}
+
+static void flicker(void)
+{
+    flicker2(0);
+    flicker2(1);
+    int same = 0;
+    for (int i = 0; i < 7; ++i) same += statuses[0][i] == statuses[1][i];
+    check("spr2-flicker S#0-S#6 the same with the switch", same, 7);
+    flicker1(0);
+    flicker1(1);
+}
+
 int main(void)
 {
     nine();
@@ -416,6 +481,7 @@ int main(void)
     graphic5();
     graphic7();
     scroll();
+    flicker();
     printf("%s\n", failures ? "FAILED" : "all sprite checks passed");
     return failures ? 1 : 0;
 }

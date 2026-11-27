@@ -388,6 +388,49 @@ class MeasuresTests(unittest.TestCase):
         self.assertLessEqual(driver._worst_path()[0], 22.0)
         self.assertEqual(driver.stats['measures_clamped'], 0)
 
+    def test_round_trips_from_before_a_guest_s_game_was_ready_do_not_choose_the_delay(self):
+        # 27 Nov 2026: a CPC guest's game took about a second to start; the PINGs of that second were answered at once when it
+        # was ready (938, 907, ... 5 ms) and the host chose 10 frames on a 1 ms LAN. Here the guest answers 0.8 s of PINGs in
+        # one burst before it says its boot, then each PING at once.
+        link = StubLink(0)
+        driver = LockstepDriver(RecordingGame(), link, Settings(
+            seat=0, seats=2, digest_every=25, packet_rate=1e9,
+            local_source=scripted_inputs.local_source({'kind': 'pad', 'seat': 0})))
+        driver.start()
+        try:
+            self.assertTrue(link.opened.wait(10))
+            seen = 0
+
+            def new_pings():
+                nonlocal seen
+                sent = [wire.decode(data, 4) for to, data in list(link.sent) if to == 1]
+                fresh = [packet for packet in sent[seen:] if packet is not None and packet.kind == wire.PING]
+                seen = len(sent)
+                return fresh
+
+            starting = time.monotonic() + 0.8
+            late = []
+            while time.monotonic() < starting:                         # the guest's game is starting: nobody answers
+                late += new_pings()
+                time.sleep(0.005)
+            self.assertGreater(len(late), 10)
+            for ping in late:                                           # then every PING of that time, in one burst
+                link.sink(1, wire.encode_pong(1, ping.time))
+            deadline = time.monotonic() + 20
+            while driver.delay is None and time.monotonic() < deadline:
+                link.sink(1, wire.encode_boot(1, BOOT))
+                link.sink(1, wire.encode_measure(1, 1, 1))
+                for ping in new_pings():
+                    link.sink(1, wire.encode_pong(1, ping.time))
+                time.sleep(0.005)
+            self.assertIsNotNone(driver.delay, driver.snapshot())
+            # FakeGame runs 500 frames a second, so the delay is read as the measure it came from (205 + 146 ms before the fix)
+            self.assertLess(sum(driver.measured), 60, driver.snapshot())
+            self.assertLess(max(driver._rtt[1]), 200, driver._rtt[1])  # none of the burst is a measure of the link
+        finally:
+            driver.stop()
+            driver.join(30)
+
     def test_a_measure_after_the_gate_is_ignored(self):
         with Fixture(self, seats=3) as fixture:
             fixture.say(1, wire.encode_measure(1, 900, 900))
@@ -439,6 +482,53 @@ class EndingsTests(unittest.TestCase):
             driver.stop()
             driver.join(30)
         self.assertEqual(game.stops, [pipe.STOP_DESYNC])
+
+    # 27 Nov 2026, the lockstep self-test in a full suite: the guest found the games out of step the moment its game
+    # reported the digest, before any packet of it carried that digest; the host, which believes only its own comparison,
+    # waited `desync_confirm` and ended « seat_left » (« Nadia left, reporting the games out of step »). The order of the
+    # two findings is forced here both ways.
+
+    def test_a_guest_that_finds_it_first_sends_the_host_its_digest_before_its_bye(self):
+        link = StubLink(1)
+        game = RecordingGame()
+        driver = LockstepDriver(game, link, Settings(seat=1, seats=2, delay=2, digest_every=50))
+        driver._phase = 'play'
+        driver._set_delay(2, time.monotonic())
+        driver._peer_digests[0][99] = 0x1111                       # the host's digest of frame 99 came first
+        driver._from_game((pipe.MSG_DIGEST_OF, struct.pack('<IQ', 99, 0x2222)))     # then this game's, another one
+        self.assertEqual((driver.outcome, driver.desync[0]), ('desync', 99))
+        kinds = [(packet.kind, packet.digest_frame, packet.digest) if packet.kind == wire.INPUT else (packet.kind,)
+                 for packet in (wire.decode(data, 2) for to, data in link.sent if to == 0)]
+        self.assertIn((wire.INPUT, 99, 0x2222), kinds)
+        self.assertEqual(kinds.count((wire.INPUT, 99, 0x2222)), lockstep.BYE_COPIES)
+
+    def _host_with_a_digest(self, fixture):
+        """Feeds seat 2's neutral records until the host's game reported a digest; returns (frame, the host's digest)."""
+        driver = fixture.driver
+        deadline = time.monotonic() + 20
+        sent = 0
+        while not driver.digests and time.monotonic() < deadline:
+            fixture.say(1, wire.encode_input(1, sent, NO_ACKS, [(1, 2 + sent, [(0, 0)] * 8)]))
+            sent += 8
+            time.sleep(0.01)
+        self.assertTrue(driver.digests, driver.snapshot())
+        frame = min(driver.digests)
+        return frame, driver.digests[frame]
+
+    def test_the_host_ends_out_of_step_whichever_word_of_the_guest_comes_first(self):
+        for order in ('bye first', 'digest first'):
+            with self.subTest(order=order), Fixture(self, desync_confirm=10.0) as fixture:
+                driver = fixture.driver
+                frame, mine = self._host_with_a_digest(fixture)
+                bye = wire.encode_bye(1, wire.BYE_DESYNC, frame + 1)
+                proof = wire.encode_input(1, frame + 1, NO_ACKS, [], digest_frame=frame, digest=mine ^ 1)
+                for packet in ((bye, proof) if order == 'bye first' else (proof, bye)):
+                    fixture.say(1, packet)
+                self.assertTrue(driver.wait_for(lambda d: d.outcome is not None, 5), driver.snapshot())
+                self.assertEqual((driver.outcome, driver.desync[0]), ('desync', frame), driver.detail)
+                self.assertIn('out of step at frame', driver.detail)
+                driver.join(30)
+                self.assertEqual(fixture.game.stops, [pipe.STOP_DESYNC])
 
     def test_a_boot_mismatch_tells_the_culprit_and_the_others_a_neutral_reason(self):
         simulator = LinkSimulator(3, seed=2, latency_ms=2.0)

@@ -27,6 +27,8 @@ typedef struct {
     uint8_t sprite_size;           /* R#1: bit 1 16 x 16, bit 0 magnified */
     uint8_t sprite_colour0;        /* colour-0 sprite pixels are drawn and collide (V9938, TP set) */
     uint8_t colour0_collides;      /* colour-0 sprite pixels collide though never drawn (TMS9918A) */
+    uint8_t show_all;              /* PRESENTATION ONLY (the player's F5): also draw the sprites past the fourth of a line, behind
+                                    * the others; no flag, no collision and nothing the program reads changes */
 } TmsTileParams;
 
 /* One line of a tile mode: `y` is the picture row (0-255, after any vertical scroll), `fg`/`bg` the text colours. */
@@ -136,6 +138,32 @@ static void tms_sprites1_line(const TmsTileParams *t, int line, uint8_t *status,
             hit[x] = 1;
             if (pixels && drawn && !painted[x]) {   /* the lower-numbered visible pixel stays in front */
                 pixels[x] = s->colour;
+                painted[x] = 1;
+            }
+        }
+    }
+    if (!t->show_all || !pixels || fifth < 0)
+        return;
+    /* The picture only: the sprites the chip left out of this line, drawn where no earlier sprite painted (their numbers are higher, so
+     * they are behind). Neither the flags above nor `hit` is touched: the program reads exactly what it reads without this. */
+    for (int n = fifth; n < 32; ++n) {
+        uint32_t a = t->sprite_attributes + (uint32_t)n * 4;
+        uint8_t y = t->vram[a & t->mask];
+        if (y == 208)
+            break;
+        int row = (line - 1 - y) & 0xFF;
+        if (row >= shown)
+            continue;
+        uint16_t bits = tms_sprite1_bits(t, t->vram[(a + 2) & t->mask], row >> mag, big);
+        uint8_t attr = t->vram[(a + 3) & t->mask];
+        int left = t->vram[(a + 1) & t->mask] - ((attr & 0x80) ? 32 : 0);
+        uint8_t colour = attr & 15;
+        if (!colour && !t->sprite_colour0)
+            continue;
+        for (int p = 0; p < shown; ++p) {
+            int x = left + p;
+            if (x >= 0 && x < TMS_WIDTH && (bits & (0x8000u >> (p >> mag))) && !painted[x]) {
+                pixels[x] = colour;
                 painted[x] = 1;
             }
         }

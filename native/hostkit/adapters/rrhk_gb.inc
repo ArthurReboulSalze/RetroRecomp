@@ -113,7 +113,7 @@ static void rr_gb_settings_loaded(RrhkUi *ui) {
     /* The kit read its own display keys before this call: the former file only replaces what the kit's file lacks. */
     int filter = rr_ini_int(ui->video_section, L"filter", ui->filter, ui->read_file);
     int mode = rr_ini_int(ui->video_section, L"display_mode", ui->fullscreen, ui->read_file);
-    ui->filter = filter >= 0 && filter < 4 ? filter : 0;
+    ui->filter = filter >= 0 && filter < RR_FILTERS ? filter : 0;
     ui->fullscreen = mode >= 0 && mode < 3 ? mode : 0;
     g_palette_idx = (int)rr_ini_int(L"GameBoy.Video", L"palette", palette, ui->read_file) == 0 ? 0 : 1;
 }
@@ -513,7 +513,7 @@ static void rr_gb_option_rows(int slot, RrhkOptionRows *rows) {
 }
 
 static void rr_gb_help_lines(int slot, const char **lines, int *count) {
-    if (slot == 0) lines[(*count)++] = rrhk_tr("F5  Monochrome / classic green", "F5  Monochrome / vert classique");
+    if (slot == 0) { if (!rr_gb_color_game()) lines[(*count)++] = rrhk_tr("F5  Monochrome / classic green", "F5  Monochrome / vert classique"); }   /* a Color game has no palette to choose, as the options row */
     else lines[(*count)++] = rrhk_tr("P  Pause | Enter  Start", "P  Pause | Entree  Start");
 }
 
@@ -560,6 +560,7 @@ static const RrhkMachine *rr_gb_adapter(void) {
         rr_gb_machine.host_pause = RR_GB_PAUSE + 1;
         rr_gb_machine.minimum_window = true;
         rr_gb_machine.even_scale2x = true;
+        rr_gb_machine.lcd_screen = true;           /* F3 offers the LCD grid (D35) */
         rr_gb_machine.reset = rr_gb_reset;
         rr_gb_machine.run_frame = rr_gb_run_frame;
         rr_gb_machine.pause = rr_gb_pause;

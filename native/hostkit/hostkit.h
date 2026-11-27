@@ -289,6 +289,7 @@ typedef struct RrhkMachine {
     void (*sound_ready)(void);
     /* Game Boy (phase 5). */
     bool even_scale2x;                /* Scale2x shows the picture at an even whole multiple (the Game Boy sets it; the Master System and Game Gear apply the same rule in their own game_rect) */
+    bool lcd_screen;                  /* a handheld's LCD: F3 also offers the LCD grid (HOST_KIT D35) */
     /* Sticks, the graphics page, larger pictures, rumble and discs (1.7.0, HOST_KIT.md section 2.4 and D14). Every field is
      * off when left out (0, false, NULL): a machine that declares none of them behaves exactly as before. */
     int analog_sticks;                /* sticks per player the machine reads with rrhk_pad_axes (1 or 2). Not 0: the left stick no
@@ -441,6 +442,8 @@ void rrhk_menu_icon(const RrhkMenuCtx *ctx, int x, int y, int icon);
 void rrhk_help_sound_line(const RrhkMenuCtx *ctx, int y);
 /* The key of the computers' keyboard row on the options page (rrhk_computer.inc): the kit gives it the keyboard icon. */
 #define RRHK_ROW_KEYBOARD (SDL_NUM_SCANCODES + 1)
+/* The key of the « sprite flicker reduction » row on a computer whose F5 is « fast loading » (rrhk_sprite_option.inc, the MSX family). */
+#define RRHK_ROW_SPRITES (SDL_NUM_SCANCODES + 22)
 void rrhk_option_row(RrhkOptionRows *rows, int key, const char *format, const char *value);
 /* 1.7.5: an options row with its own icon (RR_ICON_ROW_*); rrhk_option_row lets the kit choose by the row's key (D20). */
 void rrhk_option_row_icon(RrhkOptionRows *rows, int key, int icon, const char *format, const char *value);

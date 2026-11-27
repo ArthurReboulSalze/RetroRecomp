@@ -70,6 +70,7 @@ The keys of a converted game, also in [CONTROLS.md](CONTROLS.md#msx-and-msx2):
 | Start (Enter, pad Start) | The MSX SPACE key |
 | Select (right Shift, pad Back) | The MSX F1 key |
 | Ctrl+Alt+K | Hands the whole keyboard to the MSX; F1 to F5 then go to the MSX, and the help is at Ctrl+F1 |
+| F2, options page | **Sprite flicker reduction** (off by default): the sprites past the line limit (4 on the TMS9918A and in the V9938's sprite mode 1, 8 in its sprite mode 2) are also drawn, behind the others; the picture only, nothing the game reads changes. F5 held stays fast loading |
 
 Since 1.7.6 player 1's buttons sit on keys at the same place on QWERTY, AZERTY and QWERTZ; a saved key still on the former default (W X) moves to the new one by itself, and a key you chose in F2 is kept.
 

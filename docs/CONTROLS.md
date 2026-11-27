@@ -17,9 +17,9 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | --- | --- |
 | F1 | Help; **Shift+F1** restarts at once, without confirmation (so does the F2 tile **Restart the game**, the one before Quit; in multiplayer the host's only) |
 | F2 | Settings: a menu of tiles (1.7.4), one per page: each player's keyboard and gamepad, the gun or DIP page, the options. Enter opens a page, Esc comes back |
-| F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth. On a 3D machine (1.7.0, none yet): the graphics page, see [Sticks, vibration, graphics and discs](#sticks-vibration-graphics-and-discs) |
+| F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth, CRT flat, CRT curved, and LCD grid on the Game Boy, Game Boy Color, Game Boy Advance and Game Gear ([VIDEO.md](VIDEO.md#crt-and-lcd-looks)). On a 3D machine (1.7.0, none yet): the graphics page, see [Sticks, vibration, graphics and discs](#sticks-vibration-graphics-and-discs) |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → **stretched fullscreen** (1.7.4: the whole screen, the aspect ignored) → window; a short notice names the mode |
-| F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode. On the Game Gear the option exists from 1.6.5 on (before, F5 answered "Config unavailable", since 0.25.0) |
+| F5 | Master System, Game Gear, SG-1000, ColecoVision and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode; on the computers (MSX included) F5 held is fast loading, and the MSX's sprite flicker reduction is a row of the F2 options page. On the Game Gear the option exists from 1.6.5 on (before, F5 answered "Config unavailable", since 0.25.0) |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
 | F7 | Next menu language: EN → FR → IT → ES → DE |
 | F8 | Save/replace the game's quick state |
@@ -152,6 +152,14 @@ B is A, A is B, the shoulder buttons are L and R, Start is Start and Back is Sel
 below and the two shortcuts F1 and Shift+F1 are the common ones of the host kit, not repeated here. The cartridge save (SRAM, Flash or
 EEPROM) is kept in `datas/saves` and written when it changes and at exit. The help page of F1 lists these keys.
 
+### Game Boy Color
+
+Experimental, not in a release yet. One player, with the Game Boy's keys and pad: arrows move, **S/D** are A/B, **Enter** is
+cartridge Start and either **Shift** is cartridge Select; P pauses; F6 autofire, F8 and F9 quick states, the F2 pages and the
+speed and sound controls are the common ones. There is no palette choice: a Color game uses its own colours, F5 only shows a
+notice saying so, and the options page has no palette row. A rumble cartridge does not make the pad vibrate
+([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)).
+
 ### MSX and MSX2
 
 The MSX1 and MSX2 profiles share these controls. The MSX2 picture is 544 x 228.
@@ -159,7 +167,8 @@ The MSX1 and MSX2 profiles share these controls. The MSX2 picture is 544 x 228.
 Joystick 1 is on the **arrow keys**, which also press the MSX cursor keys. Trigger A is **D** (it also presses the SPACE key) and trigger B is **S**.
 **Start** (Enter, pad Start) presses the MSX SPACE key and **Select** (right Shift, pad Back) presses the MSX **F1**; on a controller, the D-pad moves and A and
 B are the triggers. **Ctrl+Alt+K** hands the whole keyboard to the MSX (the same switch as on the other computers; F1 to F5 then go to the MSX, and the help is
-at Ctrl+F1). The F2 pages, autofire (F6) and the speed and sound controls are the common ones. F8 saves a quick state and F9 loads it, refused when the cartridge, the BIOS, the options or the build differ. See
+at Ctrl+F1). The F2 pages, autofire (F6) and the speed and sound controls are the common ones. **Sprite flicker reduction** (off by default, picture only) is a row of
+the F2 options page, not F5: F5 held stays fast loading, as on the other computers. F8 saves a quick state and F9 loads it, refused when the cartridge, the BIOS, the options or the build differ. See
 [MSX.md](MSX.md#4-controls).
 
 ### SG-1000
@@ -169,7 +178,7 @@ buttons 1 and 2, on two pads, and **Pause**, the console's NMI. Player 1: the ar
 player 2: the numeric keypad (5, 2, 1, 3 move, 8 and 9 are the buttons, 7 is Pause). On a controller, the D-pad moves, A is button 1, B is button 2 and
 Start is Pause. Pause raises the console's NMI once: the game's own pause routine runs, the kit's Pause menu is not used. Every key can be changed in F2
 (see the common rules above); F6 autofire, F8 and F9 quick states, the F2 pages and the speed and sound controls are the common ones
-([SG1000.md](SG1000.md#4-controls)).
+([SG1000.md](SG1000.md#4-controls)). **F5** is sprite flicker reduction, as on the Master System (below).
 
 ### ColecoVision
 
@@ -178,7 +187,7 @@ arrow keys, the two fire buttons on **D** and **S**, the keypad's digits on the 
 numeric pad's `*` and `/`); on a gamepad, the D-pad moves, A and B are the fire buttons, and Y opens a short on-screen keypad (the D-pad moves on it, A presses a key, B or Y
 closes it; the game keeps running). Player 2 plays on I J K L, U (fire 1) and O (fire 2), with the numeric pad's digits for the keypad. The console has no Pause button. Every key can
 be changed in F2; F6 autofire never pulses a keypad key, F8 and F9 are quick states, and the F2 pages, the speed and the sound controls are the common ones.
-See [COLECOVISION.md](COLECOVISION.md#3-how-it-is-planned-to-work).
+**F5** is sprite flicker reduction, as on the Master System (below). See [COLECOVISION.md](COLECOVISION.md#3-how-it-is-planned-to-work).
 
 ## In a multiplayer match
 
@@ -230,7 +239,7 @@ first). No console of this release declares any of them, so nothing below appear
 - **Vibration**: a row **Vibration: ON/OFF** of the options page, on by default, the same setting for every such machine
   (`[Manettes] rumble`).
 - **F3, the graphics page**: one row per option of the machine's renderer (internal resolution and the like; Left/Right or
-  Enter/A change it at once), the **Filter** row (the four filters of F3 on the other consoles), and **Restore defaults**.
+  Enter/A change it at once), the **Filter** row (the filters of F3 on the other consoles, CRT flat and CRT curved included), and **Restore defaults**.
   Esc, B or F3 closes it; the game waits meanwhile. Kept under `[<Console>.Video]`.
 - **Change disc**: a control of the F2 pages like the others (its default key is the machine's); in play it takes the next
   disc, after the last the first, and shows "Disc 2/3".
@@ -391,8 +400,8 @@ shortcut is added. See [fallback recovery and moved games](RUNTIME_FEEDBACK.md).
 The xBR implementation is shared by Master System, Game Gear, Game Boy, NES,
 Mega Drive, Super Nintendo, the local Neo Geo profile, CPS-1 and the X68000.
 New exports cache
-unchanged image regions while producing the same filtered pixels. It remains
-last in the F3 cycle and requires no new setting. Existing EXEs need regeneration
+unchanged image regions while producing the same filtered pixels. It stays
+after Scanlines in the F3 cycle, before the CRT and LCD looks, and requires no new setting. Existing EXEs need regeneration
 to receive this improvement; updating the converter alone does not alter them.
 
 In F2, Enter selects a binding instead of pausing. Left/Right (or Tab) turns
@@ -422,7 +431,7 @@ and buttons; there is no second-player or Light Phaser page. Game Gear key
 bindings have their own INI sections so they do not overwrite Master System
 controls when games share an executable folder.
 
-The Neo Geo MVS profile shares the same menus and four filters.
+The Neo Geo MVS profile shares the same menus and the F3 filters, CRT flat and CRT curved included.
 Player 1: arrows, **S/D/F/E** for **A/B/C/D**, **Enter** for Start and either
 **Shift** for Coin. Player 2: keypad **5/2/1/3**, **8/9/6/4**, keypad Enter and
 keypad 0 respectively. Two controllers use D-pad/left stick, A/B/X/Y, Start
@@ -450,8 +459,8 @@ Back are cartridge Start/Select, and the Guide button opens pause. Since
 1.6.3 Game Boy runs the same player shell as every other console (the host kit):
 F2 has the keyboard and gamepad pages of player 1 with the Quit and Restart
 combinations and the Gamepad row, then the options; the Pause/Menu action
-(P, the Guide button) is a row of the page like the Game Gear's. F3 cycles all four
-filters, including Scale2x and scanlines; F4 keeps the same three display
+(P, the Guide button) is a row of the page like the Game Gear's. F3 cycles every
+filter, from sharp pixels to xBR smooth, CRT flat, CRT curved and the LCD grid; F4 keeps the same three display
 modes. F5 immediately switches between pseudo black-and-white monochrome
 (the default) and classic green, without opening a menu or pausing the game.
 The palette choice is saved with the other Game Boy settings.
@@ -507,6 +516,13 @@ overlapping character appears in front; ambiguous identities, raster rewrites
 and lasting priority changes retain cartridge ordering. The Game Gear VDP has the same eight-sprite line limit and uses
 the same renderer, so the option works the same way there (new in 1.6.5, off by default; exports of 1.6.4 and before answer
 "Config unavailable" to F5 on the Game Gear until they are rebuilt). Sprites outside the 160 × 144 window are never shown.
+
+On the SG-1000 and the ColecoVision, **F5** is the same option on their TMS9918A video chip, whose limit is **four** sprites a line:
+off by default (the console's picture), saved in `[SG1000.Video]` and `[ColecoVision.Video] reduce_sprite_flicker`. Turned on, the
+sprites past the fourth are also drawn, behind the others; the fifth-sprite and collision flags, and everything the game reads, stay as
+without it, so quick states and multiplayer are unchanged and each player of a match chooses their own. It is a picture switch, not a
+fidelity setting: a game that counts on the limit to hide a sprite can show it (Bump 'N' Jump draws cars over its status line), and
+it does nothing for a game that redraws the screen while it is displayed.
 
 On NES, **F5** draws objects 9 to 64 of a scanline where none of the eight
 original sprite units is opaque, in OAM order and with their own background

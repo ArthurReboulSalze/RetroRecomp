@@ -180,7 +180,7 @@ Licences and notices: [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
 ## Controls and options
 
-The Neo Geo shares the common menus, the four filters and the F2 pages
+The Neo Geo shares the common menus, the F3 filters (CRT flat and CRT curved included) and the F2 pages
 ([CONTROLS.md](CONTROLS.md)).
 
 - **Player 1**: arrows, **S/D/F/E** for A/B/C/D (the same place on every keyboard

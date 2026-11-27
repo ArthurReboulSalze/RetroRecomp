@@ -149,9 +149,9 @@ static void graphics_key(RrhkRun *run, SDL_Scancode key) {
         const RrhkGfxOption *option = &m->gfx_options[*row];
         if (option->count > 0) rrhk_gfx_set(*row, (rrhk.gfx[*row] + (back ? option->count - 1 : 1)) % option->count);
     } else if (*row == options) {
-        static const int previous[4] = {1, 3, 0, 2};      /* the F3 order of rr_menu_next_filter, backwards */
-        const int filter = rrhk.filter >= 0 && rrhk.filter < 4 ? rrhk.filter : 0;
-        if (!rrhk_set_filter(run, back ? previous[filter] : rr_menu_next_filter(filter))) run->running = false;
+        const int filter = rrhk.filter >= 0 && rrhk.filter < RR_FILTERS ? rrhk.filter : 0;
+        const int lcd = m->lcd_screen;
+        if (!rrhk_set_filter(run, back ? rr_menu_previous_filter(filter, lcd) : rr_menu_next_filter(filter, lcd))) run->running = false;
     } else if (enter) {
         rrhk_gfx_defaults();
         if (rrhk.filter != 0 && !rrhk_set_filter(run, 0)) run->running = false;
@@ -402,9 +402,8 @@ void rrhk_poll_events(RrhkRun *run) {
         }
         else if (key == SDL_SCANCODE_F3 && m->gfx_option_count > 0) toggle_graphics();
         else if (key == SDL_SCANCODE_F3) {
-            if (!filter_texture(run, rr_menu_next_filter(rrhk.filter))) { run->running = false; break; }
-            const char *labels[] = {rrhk_tr("Sharp pixels", "Pixels nets"), "xBR smooth", "Scale2x", "Scanlines"};
-            rrhk_notice(labels[rrhk.filter], 1800);
+            if (!filter_texture(run, rr_menu_next_filter(rrhk.filter, m->lcd_screen))) { run->running = false; break; }
+            rrhk_notice(rrhk_filter_name(rrhk.filter), 1800);     /* the filter's name in the five game languages */
             save_filter();
         } else if (key == RRHK_KEY_RUMBLE && from_row) {
             rrhk_toggle_rumble();

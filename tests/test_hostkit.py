@@ -25,14 +25,17 @@ class StagingTests(unittest.TestCase):
                 self.assertEqual(len(listed), len(hostkit.SHELL) + (0 if included else 1))
                 adapters = [name for name in listed if '/adapters/' in name]
                 self.assertEqual(adapters, [] if included else [f'hostkit/adapters/rrhk_{family}.c'])
-                staged = [*listed, *([included] if included else [])]
+                # The shared pieces an adapter includes (the sprite-flicker option's) are staged with it, and compiled by nobody.
+                staged = [*listed, *([included] if included else []), *(f'hostkit/{name}' for name in hostkit.adapter_includes(family))]
                 for name in (*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h', 'hostkit/hostkit_session.h',
-                             'hostkit/shell/rrhk_session.inc', 'hostkit/shell/rrhk_chat.inc'):
+                             'hostkit/shell/rrhk_session.inc', 'hostkit/shell/rrhk_chat.inc',
+                             'hostkit/shell/rrhk_crt_shader.inc', 'hostkit/shell/rrhk_crts.inc'):
                     self.assertEqual((project / name).read_bytes(), (KIT / name.split('/', 1)[1]).read_bytes())
                 self.assertEqual(sorted(path.relative_to(project).as_posix() for path in (project / 'hostkit').rglob('*')
                                         if path.is_file()), sorted([*staged, 'hostkit/hostkit.h', 'hostkit/hostkit_internal.h',
                                                                    'hostkit/hostkit_session.h', 'hostkit/shell/rrhk_session.inc',
-                                                                   'hostkit/shell/rrhk_chat.inc']))
+                                                                   'hostkit/shell/rrhk_chat.inc', 'hostkit/shell/rrhk_crt_shader.inc',
+                                                                   'hostkit/shell/rrhk_crts.inc']))
 
     def test_an_unchanged_file_keeps_its_timestamp(self):
         with tempfile.TemporaryDirectory() as folder:

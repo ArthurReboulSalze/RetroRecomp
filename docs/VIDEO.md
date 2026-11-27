@@ -2,8 +2,8 @@
 
 ## Shared F3 filters
 
-All nine console hosts cycle through **Sharp pixels**, **Scale2x**, **Scanlines**,
-then **xBR smooth**. Stored IDs remain unchanged so existing settings keep their
+Every 2D machine on the host kit cycles through **Sharp pixels**, **Scale2x**, **Scanlines**,
+then **xBR smooth**, then the [CRT and LCD looks](#crt-and-lcd-looks). Stored IDs remain unchanged so existing settings keep their
 chosen effect. Mode 1 retains its stored setting ID and replaces
 the earlier Scale2x + AA attempt with a CPU adaptation of Hyllian's xBR-lv2.
 It examines a 5-by-5 neighbourhood to reconstruct diagonal contours at four
@@ -26,6 +26,28 @@ frame. These synthetic results exclude texture upload, GPU presentation and the
 rest of the game. They do not establish whole-game performance or physical
 latency. Run `python tools/xbr_selftest.py` to check contour coverage, rotation,
 RGBA mixing, boundaries and these workloads without a ROM or window.
+
+## CRT and LCD looks
+
+Since the release after 1.9.1, F3 continues after **xBR smooth** with **CRT flat** and **CRT curved**, and on the
+handhelds (Game Boy, Game Boy Color, Game Boy Advance, Game Gear) with **LCD grid** (host kit decision
+[D35](HOST_KIT.md#d35)). They are drawn without a shader, with the same calls on every graphics driver:
+
+- **CRT flat**: one beam per line of the console with dark gaps between them, a phosphor mask (aperture grille), a
+  little glow and a light vignette.
+- **CRT curved**: the same picture bent like a tube screen, with rounded corners and a slot mask.
+- **LCD grid**: each pixel of the handheld in its own cell with a thin dark gap, at three screen pixels a pixel or more.
+
+With a graphics card (Direct3D 11 on Windows, OpenGL on Linux) the two CRT looks are drawn by the card with CRTS,
+Timothy Lottes' public-domain CRT shader: real beams that widen on bright parts, a softer horizontal blend, and a tone
+map that keeps the picture almost as bright as without the look. Without a card, or under Variable refresh (Direct3D 12),
+the same two looks are drawn the simpler way described here.
+
+The CRT looks count the console's own lines, not the rows of a raised internal resolution. Above 300 lines a frame
+(interlaced modes, 31 kHz monitors) they draw no gaps, as those screens showed none. Without a graphics card (SDL's
+software renderer) the CRT looks are drawn flat and lighter. A mask darkens the picture: the looks give some
+brightness back, but bright colours can clip. They are presentation only: nothing reaches the game, its saves, its
+quick states or a multiplayer match. No frame cost has been timed, and physical latency is not measured.
 
 The help screen (**F1**) shows **v<version>** at the right of its title row.
 The converter injects its own version during compilation for each console;
