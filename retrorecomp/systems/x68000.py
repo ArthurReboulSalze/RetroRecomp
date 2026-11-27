@@ -64,12 +64,44 @@ class X68000Profile(SystemProfile):
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         if suffix not in self.extensions:
             return None
+        self.refuse_other_machines_files(path, suffix)
         if not self.available():
             raise UnsupportedConsoleError(
                 'The Sharp X68000 profile is unavailable in this installation.')
         if selected_system and selected_system != self.id:
             raise ConsoleMismatchError('Detected Sharp X68000; choose Automatic or Sharp X68000.', self.id)
         return self
+
+    @staticmethod
+    def refuse_other_machines_files(path: Path, suffix: str) -> None:
+        """`.d88` and `.m3u` are other machines' names too (the X1, PC-88 and PC-98 write D88 images; every frontend writes M3U
+        playlists, of PlayStation discs among others): the extension alone does not make them an X68000's. A D88 whose header names a
+        medium other than 2HD, or a playlist that lists anything but X68000 disk images, is refused as no X68000 disk set, with the
+        reason, instead of being handed to the X68000 reader (audit of 27 November 2026)."""
+        from ..x68000_media import D88_HEADER_BYTES, D88_MEDIA, DISK_EXTENSIONS
+        if suffix in ('.d88', '.88d'):
+            try:
+                with path.open('rb') as source:
+                    header = source.read(D88_HEADER_BYTES)
+            except OSError:
+                return
+            if len(header) >= D88_HEADER_BYTES and header[0x1A] in (0x00, 0x10) and header[0x1B] in D88_MEDIA and header[0x1B] != 0x20:
+                raise UnsupportedConsoleError(
+                    f'{path.name} is a D88 image of a {D88_MEDIA[header[0x1B]]} disk (an X1, PC-88 or PC-98 disk): '
+                    'not an X68000 2HD disk.')
+        elif suffix == '.m3u':
+            try:
+                if path.stat().st_size > 32768:
+                    return              # the reader refuses it with its own sentence
+                lines = [line.strip() for line in path.read_text(encoding='utf-8-sig').splitlines()]
+            except (OSError, ValueError):
+                return
+            members = [line for line in lines if line and not line.startswith('#')]
+            foreign = sorted({Path(line).suffix.casefold() or '(none)' for line in members
+                              if Path(line).suffix.casefold() not in DISK_EXTENSIONS})
+            if foreign or not members:
+                what = ('lists ' + ', '.join(foreign) + ' files' if foreign else 'lists no disk')
+                raise UnsupportedConsoleError(f'{path.name} is a playlist that {what}: not an X68000 disk set.')
 
     def read_rom(self, path: Path):
         from ..x68000 import read_input

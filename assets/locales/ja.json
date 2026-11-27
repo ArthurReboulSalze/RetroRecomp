@@ -1163,7 +1163,8 @@
     "scan_note_zxs": "推奨：標準。開発中のプロファイルです。スキャンレベルは受け付けますが、まだ何も変換しません。",
     "zxs_rom48_label": "ZX Spectrum：あなた自身の 48K ROM（16 KiB、任意）",
     "coleco_bios_label": "ColecoVision：あなた自身の BIOS（8 KiB、必須）",
-    "zxs_rom128_label": "ZX Spectrum：あなた自身の 128K ROM（32 KiB、または同じフォルダーにある 16 KiB の二つのファイル、任意）"
+    "zxs_rom128_label": "ZX Spectrum：あなた自身の 128K ROM（32 KiB、または同じフォルダーにある 16 KiB の二つのファイル、任意）",
+    "amiga_several_slaves": "には複数の WHDLoad スレーブ ({log}) が含まれています。1 つのアーカイブにはインストールを 1 つだけ入れてください。"
   },
   "runtime": {
     "Internal resolution": "内部解像度",

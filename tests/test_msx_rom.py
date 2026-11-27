@@ -194,19 +194,47 @@ class Msx2IdentificationTests(unittest.TestCase):
         for image in (music, fmpac, disk, basic):
             self.assertIsNotNone(system_rom(image))
             self.assertFalse(looks_like_cartridge(image))
-        games = (header(0x4010, 0), header(0, 0x8010, at10=b'\xFD\x1A\xBE\x20'),       # INIT only; a STATEMENT-only game
+        games = (header(0x4010, 0),                                                 # INIT only
                  header(0x404F, 0x57C3, at10=b'\xC3\x00\x40' * 21),                   # header bytes that are code (JP)
                  header(0x402E, 0x434F, at10=b'\xC3\x00\x40' * 10))                   # a longer jump table
         for image in games:
             self.assertIsNone(system_rom(image))
             self.assertTrue(looks_like_cartridge(image))
+        # A STATEMENT-only header is a BASIC extension: no firmware rule names this one, and no cartridge starts from it.
+        extension = header(0, 0x8010, at10=b'\xFD\x1A\xBE\x20')
+        self.assertIsNone(system_rom(extension))
+        self.assertFalse(looks_like_cartridge(extension))
 
     def test_text_over_the_header_fields_is_still_a_cartridge(self):
         from retrorecomp.msx_rom import has_header, looks_like_cartridge
         data = bytearray(image(0x8000))
         data[4:16] = b'HYDLIDE3MSX2'                   # what Hydlide 3 writes over STATEMENT, DEVICE, TEXT and the reserved bytes
         self.assertTrue(has_header(bytes(data)))
-        self.assertFalse(looks_like_cartridge(bytes(data)))   # the strict sniff of a loose .rom stays strict
+        # The sniff of a loose .rom asks what the BIOS asks (has_header): such a game is found, from any folder (audit of
+        # 27 November 2026: 76 of the 77 MSX1 games of a player's msx1 folder were refused by a stricter sniff).
+        self.assertTrue(looks_like_cartridge(bytes(data)))
+
+    def test_the_sniff_of_a_loose_rom_is_the_bios_rule_and_nothing_looser(self):
+        from retrorecomp.msx_rom import has_header, looks_like_cartridge
+
+        def rom(size=0x8000, offset=0, init=0x4010, text=0):
+            data = bytearray(size)
+            data[offset:offset + 2] = b'AB'
+            data[offset + 2:offset + 4] = init.to_bytes(2, 'little')
+            data[offset + 8:offset + 10] = text.to_bytes(2, 'little')
+            return bytes(data)
+        self.assertTrue(looks_like_cartridge(rom()))
+        self.assertTrue(looks_like_cartridge(rom(offset=0x4000, init=0x4010)))     # the header of a 32 KiB image's second half
+        self.assertTrue(looks_like_cartridge(rom(init=0, text=0x8000)))            # TEXT only: a BASIC program cartridge
+        self.assertTrue(looks_like_cartridge(rom(init=0x0010)))                    # a port with a small INIT (Beam Rider, River Raid)
+        for refused in (rom(init=0xC010),                                          # INIT outside the cartridge window
+                        rom(offset=0x4000, init=0x2F43),                           # ASCII "ABC/X16" at 4000h (the Commander X16's ROM)
+                        rom(init=0),                                               # no INIT, no TEXT
+                        rom(size=0x8000 + 3),                                      # not whole kilobytes
+                        rom(size=0x1000),                                          # under 8 KiB
+                        b'XY' + rom()[2:]):                                        # no "AB"
+            self.assertFalse(looks_like_cartridge(refused))
+        self.assertEqual(looks_like_cartridge(rom()), has_header(rom()))
 
 
 class MapperProbeChoiceTests(unittest.TestCase):

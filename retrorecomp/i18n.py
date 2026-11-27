@@ -788,6 +788,8 @@ STRINGS = {
         "Le pack ScummVM est déjà là : rien à télécharger."),
     'scummvm_download_failed': ("ScummVM's files could not be downloaded. Check the internet connection, then try again. Details: {log}",
         "Les fichiers de ScummVM n'ont pas pu être téléchargés. Vérifie la connexion à Internet, puis réessaie. Détails : {log}"),
+    'amiga_several_slaves': ("holds several WHDLoad slaves ({log}): one install per archive is expected.",
+        "contient plusieurs slaves WHDLoad ({log}) : une seule installation par archive est attendue."),
     'scummvm_build_failed': ("ScummVM could not be built on this computer, so nothing was converted. Try again; the details are in {log}",
         "ScummVM n'a pas pu être compilé sur cet ordinateur : rien n'a été converti. Réessaie ; les détails sont dans {log}"),
     'step_timed_out': ("A conversion step was stopped at its time limit ({limit}): {step}. The computer may be slow or busy (an antivirus scanning the build folder, another heavy program). Try again; if it stops again, send this message with the conversion log.",
@@ -1339,7 +1341,7 @@ LOG_PATTERNS = [
 ]
 # Sentences a conversion raises in English, since a build module knows no language: the window shows them in the player's own,
 # with what comes before them on the line (the title of the game).
-LOG_SENTENCES = ('scummvm_download_failed', 'scummvm_build_failed')
+LOG_SENTENCES = ('scummvm_download_failed', 'scummvm_build_failed', 'amiga_several_slaves')
 # What Python says when a step of the conversion goes past its time limit (subprocess.TimeoutExpired): the whole command line
 # and the limit in seconds. The window says it in the player's language, with the step named by its program and first
 # arguments (which carry the compiler jobs, `--parallel N`). Read here, at display time, so no game stamp moves for it.

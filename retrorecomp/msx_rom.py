@@ -177,16 +177,20 @@ def guess(image: bytes) -> Guess:
 MAX_CARTRIDGE = 0x200000      # 2 MiB: the largest MegaROM the first scope reads
 
 
-def _pointers_fit(image: bytes, offset: int) -> bool:
-    """A credible "AB" header at `offset`: at least one routine pointer (INIT, STATEMENT, DEVICE, TEXT), every one either
-    zero or inside the cartridge window its page allows (0000h-BFFFh), and the six reserved bytes after them zero or FFh."""
-    if image[offset:offset + 2] != b'AB':
-        return False
-    pointers = [int.from_bytes(image[offset + 2 + 2 * i:offset + 4 + 2 * i], 'little') for i in range(4)]
-    if not any(pointers) or any(p >= 0xC000 for p in pointers):
-        return False
-    reserved = image[offset + 10:offset + 16]
-    return reserved in (bytes(6), b'\xFF' * 6)
+# System ROMs no header pattern tells from a game (language and interface extensions, a machine's whole firmware): their SHA-256, as
+# numbers about files seen in a player's BIOS folder, 27 November 2026 (no ROM byte is stored here). A small reviewed table: an entry
+# is added only for a file that is firmware beyond doubt.
+KNOWN_SYSTEM_ROMS = {
+    '91c33f3304c437c151b9ad877019463d1b68e1dbaa792a6b42a7a890f8c55c34': 'Arabic extension ROM',
+    'c530b4749986b0384fd4a0a2c0d6841a6aa229e745a7f40a27d67b29f872d43e': 'Arabic extension ROM',
+    '092a9b5157e0d4703955584f388f0f44035e4991e21b8e1499db8f333076bca7': 'Korean Hangul ROM',
+    'c0aa4a95a5d6eefafd2f191058d6c675b9ca87bf29d88fc20b05aa45a5d1475e': 'Korean extension ROM',
+    '974bb2dfca1a6da6cf19a11d3370a8dab96e42e329b395c82eb5ab9d2da0196c': 'Korean Hangul ROM',
+    '696da03345b9fd27799b8fd92024050a201c020ef730e9006cb8f10bbbf68004': 'RS-232C interface ROM',
+    '38cde34f03bb7d134acd1d013eccbac3a447f570039ab1c37fa4b222e59cfc61': 'Panasonic FS-A1WSX firmware',
+    '6f3a760be58bace2bce20496ffc7d43e0dbe7d229ac14453f2194fcc7059d3ab': 'Pioneer PX-7 PBASIC ROM',
+}
+_KNOWN_SYSTEM_SIZES = frozenset({0x2000, 0x8000, 0x200000})
 
 
 def system_rom(image: bytes) -> str | None:
@@ -199,6 +203,11 @@ def system_rom(image: bytes) -> str | None:
     Measured on 12 November 2026 on a player's BIOS folder (24 of its 37 "AB" images) and two MSX game libraries (0 of 522
     cartridges caught: games whose header bytes are code have C3h, JP, where STATEMENT sits, or longer jump tables).
     Firmware, word processors, RS-232C and other language extensions stay listed: no header pattern tells them apart."""
+    if len(image) in _KNOWN_SYSTEM_SIZES:
+        import hashlib
+        known = KNOWN_SYSTEM_ROMS.get(hashlib.sha256(image).hexdigest())
+        if known:
+            return known
     for offset in (0, 0x4000):
         if offset + 0x20 > len(image) or image[offset:offset + 2] != b'AB':
             continue
@@ -217,22 +226,22 @@ def system_rom(image: bytes) -> str | None:
 
 
 def looks_like_cartridge(image: bytes) -> bool:
-    """The bytes of a .rom are an MSX cartridge: 8 KiB to 2 MiB, whole kilobytes, and an "AB" header at the start (or at
-    4000h of an image whose first page belongs to the game), and not a system ROM (system_rom). Asked after the other
-    machines' sniffers, which recognise their own headers first."""
-    size = len(image)
-    if not 0x2000 <= size <= MAX_CARTRIDGE or size % 0x400:
-        return False
-    if not (_pointers_fit(image, 0) or (size >= 0x8000 and _pointers_fit(image, 0x4000))):
-        return False
-    return system_rom(image) is None
+    """The bytes of a .rom are an MSX cartridge: what the BIOS itself needs of one (has_header: 8 KiB to 2 MiB, whole
+    kilobytes, an "AB" header at the start or at 4000h with an INIT pointer below C000h), and not a system ROM
+    (system_rom). Asked after the other machines' sniffers, which recognise their own headers first. It used to demand more
+    (every pointer below C000h and the reserved bytes zero or FFh): 76 of 77 MSX1 ROMs that a player's msx1 folder holds and
+    this refused were real games (Hydlide 3 and others write text over those fields), and no other machine's file in the
+    owner's library, firmware included, passes the BIOS rule (audit of 27 November 2026)."""
+    return has_header(image) and system_rom(image) is None
 
 
 def has_header(image: bytes) -> bool:
     """What the BIOS itself reads of a cartridge already known to be the MSX's (a .mx1/.mx2, a file chosen as MSX or found in
-    an MSX folder): 8 KiB to 2 MiB, whole kilobytes, "AB" at the start (or at 4000h) and an INIT or TEXT pointer below
-    C000h. Some games put text in the other header fields (Hydlide 3 spells its name over them), which the strict sniff of
-    looks_like_cartridge refuses."""
+    an MSX folder): 8 KiB to 2 MiB, whole kilobytes, "AB" at the start (or at 4000h) and an INIT pointer below C000h (with no INIT,
+    a TEXT one). Nothing else is read: some games put text in the other header fields (Hydlide 3 spells its name over them), and
+    some ports (Beam Rider, H.E.R.O., River Raid...) carry a small INIT of 10h or 160h. A header with a STATEMENT pointer only is a
+    BASIC extension, which starts nothing. A header found at 4000h of a larger image must point into 4000h-BFFFh, which keeps ASCII
+    that begins with "AB" out (the Commander X16's ROM has "ABC/X16" at 4000h)."""
     size = len(image)
     if not 0x2000 <= size <= MAX_CARTRIDGE or size % 0x400:
         return False
@@ -241,7 +250,8 @@ def has_header(image: bytes) -> bool:
             continue
         init = int.from_bytes(image[offset + 2:offset + 4], 'little')
         text = int.from_bytes(image[offset + 8:offset + 10], 'little')
-        if 0 < init < 0xC000 or (not init and 0 < text < 0xC000):
+        low = 0x4000 if offset else 1
+        if low <= init < 0xC000 or (not init and low <= text < 0xC000):
             return True
     return False
 
@@ -289,4 +299,7 @@ def read_cartridge(path) -> Cartridge:
         member = ''
     if not has_header(data):
         raise ValueError(f'{path.name}: no MSX cartridge header ("AB" and its routine pointers).')
+    kind = system_rom(data)
+    if kind:
+        raise ValueError(f'{path.name} is an MSX system ROM ({kind}): firmware, not a game.')
     return Cartridge(path, data, hashlib.sha256(data).hexdigest(), guess(data), member)

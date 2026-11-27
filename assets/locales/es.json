@@ -1163,7 +1163,8 @@
     "scan_note_zxs": "Recomendado: Estándar. Perfil en desarrollo: se aceptan los niveles de análisis, pero aún no se convierte nada.",
     "zxs_rom48_label": "ZX Spectrum: tu propia ROM 48K (16 KiB, opcional)",
     "coleco_bios_label": "ColecoVision: tu propia BIOS (8 KiB, obligatoria)",
-    "zxs_rom128_label": "ZX Spectrum: tu propia ROM 128K (32 KiB, o sus dos mitades de 16 KiB juntas, opcional)"
+    "zxs_rom128_label": "ZX Spectrum: tu propia ROM 128K (32 KiB, o sus dos mitades de 16 KiB juntas, opcional)",
+    "amiga_several_slaves": "contiene varios slaves de WHDLoad ({log}): se espera una sola instalación por archivo."
   },
   "runtime": {
     "Internal resolution": "Resolución interna",

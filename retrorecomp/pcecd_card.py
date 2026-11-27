@@ -64,6 +64,30 @@ class Card:
         return blob
 
 
+# Cards the PC Engine CD does not convert with (it accepts the two 3.0 cards of BY_SHA1 only) but that a HuCard reader must still
+# recognise and refuse, by SHA-1 (MAME 0.289's pce and tg16 softlists, read on 27 November 2026 by the PC Engine specialist). The Games
+# Express CD Card is 32 KiB; the Arcade Card Pro carries the Japanese 3.0's bytes and is covered by BY_SHA1.
+REFUSED_ONLY = {
+    'a39a66da7de6ba94ab84d04eef7afeec7d4ee66a': 'CD-ROM System Card 1.0 (japan)',
+    'f92ea593c8a935f58f8e1c3b2fc730951ec4fa71': 'CD-ROM System Card 2.0 (japan)',
+    '88da02e2503f7c32810f5d93a34849d470742b6d': 'CD-ROM System Card 2.1 (japan)',
+    '2bea3dac98f84b2f2f469fa77ea720b8770d598d': 'CD-ROM System Card 2.0 (usa)',
+    '014881a959e045e00f4db8f52955200865d40280': 'Games Express CD Card',
+}
+
+
+def system_card(data: bytes) -> tuple[str, bool] | None:
+    """(name, usable) when these bytes are a System Card, None otherwise: what the HuCard reader asks of the decoded ROM, in both
+    bit orders, so that a card dropped as a `.pce` is not converted as a game. `usable` is True for the cards the PC Engine CD
+    converts with (BY_SHA1), False for those it only refuses (REFUSED_ONLY). `identify` is the stricter check of the usable ones."""
+    digest = hashlib.sha1(data).hexdigest()
+    known = BY_SHA1.get(digest) if len(data) == CARD_BYTES else None
+    if known is not None:
+        return f'{known.name} {known.version} ({known.region})', True
+    only = REFUSED_ONLY.get(digest)
+    return (only, False) if only else None
+
+
 def identify(path: Path) -> Card:
     path = Path(path)
     size = path.stat().st_size

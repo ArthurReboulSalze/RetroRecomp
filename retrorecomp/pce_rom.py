@@ -143,5 +143,15 @@ def read_hucard(path) -> HuCard:
     path = Path(path).resolve(strict=True)
     data = file_bytes(path)
     rom, header, encoding = decode(data)
+    # A System Card dropped as a .pce: asked of the decoded ROM, so that a copier header does not hide it, in both bit orders (decode may settle a tie the wrong way).
+    from .pcecd_card import system_card
+    card = system_card(rom) or system_card(rom.translate(_REVERSED))
+    if card is not None:
+        name, usable = card
+        if usable:
+            raise PcEngineRomError(f'This file is the {name}, the System Card of the PC Engine CD: firmware, not a game. '
+                                   'Give it to the PC Engine CD options, never to the games.')
+        raise PcEngineRomError(f'This file is the {name}, an older System Card or a Games Express card: firmware, not a game, and '
+                               'not the card the PC Engine CD needs, which is the Super System Card 3.0.')
     return HuCard(path, hashlib.sha256(data).hexdigest(), len(data), hashlib.sha256(rom).hexdigest(), len(rom),
                   header, encoding, board_for(len(rom)), _vector(rom), path.stem)
