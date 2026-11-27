@@ -1,7 +1,7 @@
 # PC Engine CD / TurboGrafx-CD
 
 Status: **supported** from the release after 1.9.1, on the owner's decision of 27 November 2026 after his play test (G14); open as experimental since 21 November 2026. Nine discs of the panel convert and match on
-Windows and Linux, each has a route that reaches play, multiplayer is proved on one PC. What is proved and what is not is in sections 3, 7 and 8. The decisions below are the owner's, taken on 21 November 2026 after the
+Windows and Linux, each has a route that reaches play, multiplayer is proved by automatic runs on one PC and on two. What is proved and what is not is in sections 3, 7 and 8. The decisions below are the owner's, taken on 21 November 2026 after the
 study.
 
 ## 1. What it converts, and what it does not
@@ -174,7 +174,7 @@ reached, not a claim about the game's menus). Only Dungeon Explorer II is listed
 | `tools/netplay_game_smoke.py --seats 4`, rollback 5, 30 ms ± 10, 2 % loss, save at 600, load at 1,500, restart at 2,200, 3,000 frames | PASS: boot digests equal, 50 digests of 50 different values equal on the four seats, 132 to 350 rollbacks per seat (deepest 3), the host's save written back |
 | The same with `--seats 3` | PASS |
 
-Not proved, and not claimed: the two-PC run (the multiplayer specialist's, with the ThinkPad) and physical latency (never measured). The backup memory stayed blank in the probe's route (Lords of Thunder), so the snapshot's path for it is proved on hand-set bytes (the probe's disturbed-state load). A game did write it on a route of the panel: Ys Book I & II's play route answers its « initialize the File Cabinet? » question, the memory it wrote survives a fresh process (section 4), but no session has played that game yet.
+Since then, on 27 November 2026, the multiplayer specialist's harness ran Dungeon Explorer II at four seats between two PCs on a home network (both passes: every state digest equal, save, load and restart on the same frames, rollback). Not proved, and not claimed: the owner's own play on two PCs and physical latency (never measured). The backup memory stayed blank in the probe's route (Lords of Thunder), so the snapshot's path for it is proved on hand-set bytes (the probe's disturbed-state load). A game did write it on a route of the panel: Ys Book I & II's play route answers its « initialize the File Cabinet? » question, the memory it wrote survives a fresh process (section 4), but no session has played that game yet.
 
 ## 7. The drive compared with MAME (27 November 2026)
 
@@ -216,7 +216,7 @@ leave the experimental status in this release (relayed by the lead session). His
 - Hardware fidelity: the engine's models, compared with MAME on three discs (section 7), never with a console. The drive's timing, the sound mixing and the video were not compared.
 - Not converted: the Arcade Card, SuperGrafx, System Cards other than the two Super System Card 3.0, multi-disc games, the six-button pad. No real CUE or ISO disc was converted (authored ones only); the USA card was not run.
 - Linux: witnessed headless on Debian 13 in WSL, not on a Linux PC with a display, GPU, pad or sound output.
-- Multiplayer: proved on one PC, not yet on two.
+- Multiplayer: proved by automatic runs (one PC, and two PCs with Dungeon Explorer II at four seats on 27 November 2026), not by the owner's own play on two PCs.
 - Not measured: physical latency, and the cost of a frame past the routes, on the interpreter (it waits for a quiet PC).
 
 **Path sharing (G16): declined for this release, the owner's to confirm.** Measured: the same disc converted again with its first pass starting from the module another conversion had learned, as a received bank would give it.
