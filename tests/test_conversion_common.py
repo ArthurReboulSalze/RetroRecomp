@@ -42,7 +42,9 @@ def plain(value, root):
     if isinstance(value, Path):
         value = str(value)
     if isinstance(value, str):
-        for base, token in ((root, '<T>'), (ROOT, '<R>')):
+        # A test run's data folder is a scratch one (paths.data_directory): recorded as the folder it stands for.
+        from retrorecomp.paths import data_directory
+        for base, token in ((data_directory(), '<R>/Export/datas'), (root, '<T>'), (ROOT, '<R>')):
             for form in (str(base), str(base).replace('\\', '/'), str(base.resolve()), str(base.resolve()).replace('\\', '/')):
                 value = value.replace(form, token)
         return value.replace('\\', '/')
