@@ -23,19 +23,25 @@
   controller bytes as MAME 0.289 has them. Not converted: the Super Action Controller, the roller and driving modules, the Super Game
   Module, MegaCart and other homebrew boards, the ADAM.
 - **Amstrad CPC 6128**, supported ([AMSTRAD_CPC.md](AMSTRAD_CPC.md)): DSK and EXTENDED DSK disk games, on your own firmware or on
-  pinned copies of the system ROM and AMSDOS fetched on your word; the start command is typed by itself.
+  the 6128's system ROM and AMSDOS fetched once from a pinned source (Caprice32, under Amstrad's permission for emulators) when you
+  choose none; the start command is typed by itself.
   - What a game writes on its disk is kept in a copy beside it and read back at the next start (Sport of Kings' save).
   - The pad's main button is the stick's default fire (pin 6), the second button the other fire. Mono sound by default, the
     headphone jack's stereo in F2.
   - Beyond the panel, Carrier Command, Dark Side and Rigel's Revenge convert with 0 interpreted instructions on their routes.
   - Two optimisations of its picture and memory reads, proven to give the same output (not timed).
-- **Game Boy Color**, supported ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `.gbc` cartridges and Color-only cartridges in a `.gb`,
-  on the Game Boy's engine with the colour hardware; MBC1, MBC3 with its clock, MBC5, battery saves, no boot ROM needed. Not
+  - Limits: disks load faster than on a real CPC (no rotation or step time), so a protection that measures disk timing is not
+    answered; tapes (.cdt), snapshots (.sna), the CPC 464's firmware, the Plus range and the GX4000 are not converted; its paths
+    are not shared.
+- **Game Boy Color**, supported ([GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): `.gbc` cartridges, and Color-only cartridges in a `.gb` or
+  a single-ROM ZIP (a Color-enhanced cartridge kept as a `.gb` stays with the Game Boy), on the Game Boy's engine with the colour
+  hardware; MBC1, MBC3 with its clock, MBC5, battery saves, no boot ROM needed. Not
   converted: infrared, the tilt sensor, the Printer, the Camera, Super Game Boy borders; a rumble cartridge converts, but the pad
   does not vibrate.
   - Eight fixes of the engine for the Color only (the double-speed sound order among them), 417 colour-hardware checks; 115 of 116
-    public Mooneye and blargg test ROMs pass. The Game Boy's own output is unchanged.
-  - The link cable between two Colors of the same game. F1 no longer offers the monochrome palette key. Its paths are shared, in
+    public Mooneye and blargg test ROMs pass (`cgb-acid2` differs on 40 of 23,040 pixels). The Color's fixes leave the Game Boy's
+    engine untouched.
+  - Shared controls, or two Color consoles of the same game on the link cable (not with a Game Boy). Its paths are shared, in
     the base's experimental tier.
 - **PC Engine CD / TurboGrafx-CD**, supported ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)): CD-ROM² and Super CD-ROM² discs, with your own
   System Card 3.0 (checked by its hash, never shipped; measured with the Japanese card only). Not converted: the Arcade Card,
@@ -56,17 +62,17 @@
   again on the release candidate, without a screen. The four Z80 machines pass the 51,328 SingleStepTests vectors through their own generators. Hardware
   was compared with MAME 0.289 only, never with a real console. Elite's Spectrum snapshot halts in its own decryption, in MAME too,
   and its report says so.
-- **Multiplayer**: two seats with rollback on the six, four on Dungeon Explorer II; the Game Boy Color's link cable; the host
-  types on the CPC's keyboard; the SG-1000's Pause and the ColecoVision's keypad per player. Proven by the automatic runs on two
-  PCs (12 matches of 12, then 11 of 11: every state digest equal, save, load and restart on the same frames), not by the owner's
-  own play on two PCs.
+- **Multiplayer**: two seats with rollback on the six, four on Dungeon Explorer II; the host types on the CPC's keyboard; the
+  SG-1000's Pause and the ColecoVision's keypad per player. Proven by the automatic runs on two PCs (12 matches of 12, then 11 of
+  11: every state digest equal, save, load and restart on the same frames), and the Game Boy Color's cable by one scripted two-PC
+  match of Tetris DX (65 digests equal); not by the owner's own play on two PCs.
 - **The owner's play test**: on 27 November 2026 he tried the games delivered for him (three a machine, six on the Spectrum)
   and accepted each machine. A play impression, not a measure.
 
 ### The shared Z80 chain (Master System, Game Gear, MSX family and the four new Z80 machines)
 
 - **No bound on the code learned from RAM.** The chain kept at most 4,096 learned windows, and silently dropped the rest: Carrier
-  Command (CPC) goes from 3.96 million interpreted steps a route to 0. Every machine of the chain gains it, the MSX family included;
+  Command's routes (CPC) go from about 1.7 million interpreted steps each to 0. Every machine of the chain gains it, the MSX family included;
   a game under the old bound generates the same files.
 - **A game's resources are rebuilt when an embedded file changes** (its ROM, picture or icon), on the ZX Spectrum, SG-1000,
   ColecoVision, MSX family and CPC: a work folder converted again no longer links the old ones.
@@ -143,14 +149,17 @@ Audited on a player's library of 12,347 files and a frontend's firmware folder o
   MSX-MUSIC, BASIC extensions and others) are refused as firmware. R-Type is still not converted: its mapper is not supported
   ([KNOWN_FAILURES.md](KNOWN_FAILURES.md)).
 - **Mega Drive**: the Mega-CD boot ROM is refused as firmware.
-- **Super Nintendo**: the BS-X BIOS and the Super Game Boy and Sufami Turbo bases are refused as firmware; Sufami Turbo games are
+- **Super Nintendo**: the BS-X BIOS, the Super Game Boy cartridges and the Sufami Turbo base are refused as firmware; Sufami Turbo games are
   refused as unsupported.
 - **PC Engine**: a System Card dropped as a `.pce` is refused as firmware, and an older System Card or a Games Express card gets
   its own sentence; the firmware search still finds the card.
 - **Sharp X68000**: an X1, PC-88 or PC-98 `.d88` is no longer taken for an X68000 disk, while a raw 2HD image named `.d88` is still
-  read; a playlist stays the X68000's when it lists one of its disks, and an empty one is refused.
-- **Amiga 500 and 1200**: the install's slave is chosen as the conversion chooses it, so 29 more WHDLoad archives convert (an intro,
-  an editor or a duplicate slave beside the game); an archive of several games says so, in eight languages.
+  read; a playlist is the X68000's only when it lists X68000 floppy images and nothing else, and a playlist of discs, a mixed one
+  or an empty one is refused with its reason.
+- **Amiga 500 and 1200**: the install's slave is chosen as the conversion chooses it: an archive with the game's slave beside an
+  intro, an editor or a save-disk maker, or with the same slave also kept in its data folder, is no longer refused (29 of the 40
+  multi-slave archives of a 4,788-archive library); an archive of several games is still refused, and now says it holds several
+  slaves, in eight languages.
 - **Amstrad CPC**: the disks of a game named « (Disk 1 of 2) » are queued one by one, no longer grouped into an MSX2+ playlist.
 
 ### Linux ([LINUX.md](LINUX.md))
@@ -172,10 +181,10 @@ Audited on a player's library of 12,347 files and a frontend's firmware folder o
 
 **Your exports and quick states.** **[PLACEHOLDER final commit: the stamps measured between 1.9.1 and 1.10.0, what is converted
 again]** An F8 / F9 quick state made in 1.9.1 is refused cleanly, with a message, on the Mega Drive, the Super Nintendo, the PC
-Engine, the Sharp X68000, the Atari ST, the Nintendo 64 and the two Amigas: their keys follow the game stamp, the build or engine
-files that changed. On the Master System, the Game Gear, the Game Boy, the NES, the Neo Geo, the CPS-1, CPS-1.5 and CPS-2, the Game
-Boy Advance, the PlayStation and the MSX family, nothing their state's key or layout depends on changed, so a 1.9.1 state should load (read
-from the code, not tried with a state). Cartridge saves, memory cards and the copies of written disks are kept ([UPGRADES.md](UPGRADES.md)).
+Engine, the Atari ST, the Nintendo 64 and the two Amigas: their keys follow the game stamp or engine files that changed. A Game
+Boy state of 1.9.1 loads (checked on one game). On the Master System, the Game Gear, the NES, the Neo Geo, the CPS-1, CPS-1.5 and
+CPS-2, the Sharp X68000, the Game Boy Advance, the PlayStation and the MSX family, nothing their state's key or layout depends on
+changed, so a 1.9.1 state should load (read from the code, not tried with a state). Cartridge saves, memory cards and the copies of written disks are kept ([UPGRADES.md](UPGRADES.md)).
 
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
 and shown per CPU and per device wherever it is used, in a match as alone.
