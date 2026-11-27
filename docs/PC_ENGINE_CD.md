@@ -37,10 +37,29 @@ Kept apart in every report and every page, as everywhere:
 
 - **Native code**: how much of what the disc and the System Card run was translated and how much ran on the counted interpreter fallback,
   per CPU (the HuC6280) and per device. A disc is only translated where its routes were seen to run; the rest runs counted.
-- **CPU fidelity**: the HuC6280 is the PC Engine's (the vectors of the PC Engine, 640,000 of them).
+- **CPU fidelity**: the HuC6280 is the PC Engine's; its vectors were run again for this machine on 27 November 2026 (table below).
 - **Hardware fidelity**: the CD drive, CD audio, ADPCM and backup memory are the pinned engine's models; their evidence is the engine's.
 - **Gameplay validation**: scripted routes and captures looked at; no full play of a game is recorded.
 - **Physical latency**: not measured; nothing here says zero latency or exact timing.
+
+**The HuC6280 vectors** (`SingleStepTests/huc6280`, commit `4ce378e04e243437e6f74dfe76c3cb7c70e45bf1`, 256 files, 185,548,937 bytes, files digest
+`f5b70cc85766242f8249728b56d60e269e9ee1168c252f21bf9719ca5dc84ea0`, pinned in `tools/fetch_huc6280_vectors.py`; MIT, generated with the Mesen emulator, so an emulator's expectations, not hardware).
+Run on 27 November 2026: the pinned interpreter, then the code the engine's emitter translates (250 vectors an opcode). The disc games compile the same CPU, emitter and pin.
+
+| Group | Opcodes | Interpreter: vectors run | equal (state and cycles) | state differs | cycles differ | Translated code: cases | differs from the interpreter | Known differences |
+|---|---|---|---|---|---|---|---|---|
+| load, store, register transfer | 49 | 122,500 | 122,500 | 0 | 0 | 12,250 | 0 | - |
+| arithmetic, logic, compare, test | 69 | 172,500 | 172,500 | 0 | 0 | 17,250 | 0 | - |
+| shift, increment, bit change | 54 | 135,000 | 133,508 | 1,492 | 0 | 13,500 | 0 | TSB, TRB: the Z flag from the result (as MAME), the vectors from A AND memory |
+| branch, jump, call, return, BRK | 33 | 82,500 | 82,500 | 0 | 0 | 8,250 | 0 | - |
+| stack | 8 | 20,000 | 20,000 | 0 | 0 | 2,000 | 0 | - |
+| flags, speed, NOP | 11 | 27,500 | 27,500 | 0 | 0 | 2,750 | 0 | - |
+| block transfers | 5 | 19 | 19 | 0 | 0 | 17 | 0 | most are cut by the corpus's length cap |
+| bank registers and VDC port (TAM, TMA, ST0-ST2) | 5 | 12,500 | 4,987 | 13 | 7,500 | 750 | 0 | ST0-ST2: 1 cycle more (VDC access, as MAME); TMA with mask 0: the transfer latch |
+| reserved opcodes | 22 | 0 | 0 | 0 | 0 | 0 | 0 | refused by design (55,000 vectors) |
+
+The translated code ran 56,767 cases; its 157 state differences and 750 cycle differences from the vectors are the interpreter's, on the same cases, and none differs from the interpreter. TAM and TMA are left
+to the interpreter tier (they change the guarded mapping).
 
 ## 4. Stage 1, where it stands (21 November 2026)
 
