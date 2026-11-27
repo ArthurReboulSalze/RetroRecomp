@@ -4,14 +4,20 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from retrorecomp.systems import UnsupportedConsoleError, profile_for_path
-from retrorecomp.x68000_media import D88_HEADER_BYTES
+from retrorecomp.x68000_media import D88_HEADER_BYTES, identify_disk
 
 
 def d88_header(media: int) -> bytes:
+    """A header-only D88 file that describes itself: its size field is the file's size and track 0 starts after the header."""
     header = bytearray(D88_HEADER_BYTES)
     header[0x1A] = 0x00                    # write protect: none
     header[0x1B] = media
+    header[0x1C:0x20] = D88_HEADER_BYTES.to_bytes(4, 'little')
+    header[0x20:0x24] = D88_HEADER_BYTES.to_bytes(4, 'little')
     return bytes(header)
+
+
+RAW_2HD_BYTES = 77 * 2 * 8 * 1024          # a raw (XDF) 2HD image: no header
 
 
 class X68000IdentificationTests(unittest.TestCase):
@@ -37,6 +43,19 @@ class X68000IdentificationTests(unittest.TestCase):
     def test_a_d88_of_a_two_hd_disk_is_left_to_the_x68000_reader(self):
         self.assertEqual(profile_for_path(self.make('game.d88', d88_header(0x20)), None).id, 'x68')
         self.assertEqual(profile_for_path(self.make('other.88d', d88_header(0x20)), None).id, 'x68')
+
+    def test_a_raw_disk_with_an_empty_first_sector_named_d88_is_not_refused(self):
+        # A data disk whose first sector is zeros has 00 00 where a D88 header keeps its write protect and media bytes (three of
+        # the owner's X68000 disks do). Named .d88, it is still a raw 2HD image that identify_disk reads: it is not refused.
+        image = bytearray(RAW_2HD_BYTES)
+        image[1024:1040] = b'authored data 01'          # the second sector: anything but a header
+        for media in (0x00, 0x10):                       # the header's 2D and 2DD values, here only zeros of the disk
+            image[0x1B] = media
+            with self.subTest(media=media):
+                path = self.make(f'data{media}.d88', bytes(image))
+                self.assertEqual(profile_for_path(path, None).id, 'x68')
+                disk = identify_disk(path)
+                self.assertEqual((disk.size, disk.converted), (RAW_2HD_BYTES, None))
 
     def test_a_file_that_is_no_d88_at_all_still_reaches_the_reader(self):
         self.assertEqual(profile_for_path(self.make('junk.d88', b'not a disk'), None).id, 'x68')

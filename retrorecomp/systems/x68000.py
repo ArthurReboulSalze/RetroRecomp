@@ -78,16 +78,17 @@ class X68000Profile(SystemProfile):
         playlists, of PlayStation discs among others): the extension alone does not make them an X68000's. A D88 whose header names a
         medium other than 2HD, or a playlist that lists anything but X68000 disk images, is refused as no X68000 disk set, with the
         reason, instead of being handed to the X68000 reader (audit of 27 November 2026)."""
-        from ..x68000_media import D88_HEADER_BYTES, D88_MEDIA, DISK_EXTENSIONS
+        from ..x68000_media import D88_HEADER_BYTES, D88_MEDIA, DISK_EXTENSIONS, d88_media
         if suffix in ('.d88', '.88d'):
             try:
                 with path.open('rb') as source:
                     header = source.read(D88_HEADER_BYTES)
+                media = d88_media(header, path.stat().st_size)    # the reader's own test: a raw image named .d88 is not a D88
             except OSError:
                 return
-            if len(header) >= D88_HEADER_BYTES and header[0x1A] in (0x00, 0x10) and header[0x1B] in D88_MEDIA and header[0x1B] != 0x20:
+            if media is not None and media != 0x20:
                 raise UnsupportedConsoleError(
-                    f'{path.name} is a D88 image of a {D88_MEDIA[header[0x1B]]} disk (an X1, PC-88 or PC-98 disk): '
+                    f'{path.name} is a D88 image of a {D88_MEDIA[media]} disk (an X1, PC-88 or PC-98 disk): '
                     'not an X68000 2HD disk.')
         elif suffix == '.m3u':
             try:
