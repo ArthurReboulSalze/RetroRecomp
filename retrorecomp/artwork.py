@@ -25,9 +25,12 @@ import urllib.parse
 import urllib.request
 
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
+from . import tls_roots
 from .paths import ASSETS, boxart_cache_directory
 from .systems import ALL_PROFILES
 from .cover_settings import load_settings, configured
+
+tls_roots.ensure()      # Linux: find the distribution's CA bundle before the first HTTPS request
 from .cover_sources import ORDER as SERVICE_ORDER, PROVIDERS, CoverServiceError, available, fetch
 from .cover_references import find as cover_reference
 from .cover_titles import matching_indices, normalized, sequence_numbers
