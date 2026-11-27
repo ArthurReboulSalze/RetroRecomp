@@ -1,13 +1,12 @@
 # ZX Spectrum
 
-Status: **experimental, in development** (step 1 of [NEW_MACHINE.md](NEW_MACHINE.md), from 21 November 2026). The
-conversion runs from a snapshot to a game in a development tree (section 4); no installation lists the machine yet (it is a
-developer-only profile, as the Game Boy Advance was before its first panel). This page says what the machine converts, what
-it leaves out, and how the five measures stay apart.
+Status: **supported** from the release after 1.9.1, on the owner's play test of 27 November 2026 (section 6). The machine
+opened on 21 November 2026 as an experimental, developer-only profile; every installation now lists it. This page says what
+the machine converts, what it leaves out, and how the five measures stay apart.
 
 ## 1. Scope
 
-| First (this experimental profile) | Later | Left out for now |
+| Converted | Later | Left out for now |
 |---|---|---|
 | Snapshots of the 16K, 48K and 128K (and the +2, a 128K with another menu ROM): `.z80` versions 1, 2 and 3 and `.sna` (48K and 128K), from a file or a ZIP holding exactly one | `.szx` snapshots; the +2A and +3 (another contention pattern, port 1FFDh, the +3 disk) | Tapes (`.tap`, `.tzx`): their loaders need exact EAR timing, and a snapshot skips every loader; the Interface 1 and Microdrive, the Timex, Pentagon, Scorpion and other clones, the ZX80 and ZX81 |
 | The ULA picture (256 x 192, attributes, flash, the border per line), the beeper, the AY-3-8910 on the 128K, the keyboard, the Kempston and Sinclair Interface 2 joysticks, quick states, the ULA's contention and the floating bus | Border and paper changes within a line (each line is drawn at its end) | Games that load their next level from tape during play: a snapshot cannot; they stop at that load, and the report says so |
@@ -127,14 +126,54 @@ without it, and Head over Heels' 8 %.
   - The Hobbit's story parts at frame 709.
 
   Neither start is hardware-proven, so ours is kept. The game plays either way.
+- **A snapshot can hold a program that does not go on.** Elite's snapshot halts with interrupts disabled about 50 frames in,
+  inside its own decryption, in MAME 0.289 as here. The conversion still builds the game; its report says the route stopped
+  (`route_stop`), and the title never animates. Another snapshot of the same game may run.
+- **Code past the routes stays interpreted, and the game keeps no record of it.** What a player reaches beyond the conversion's
+  routes runs on the interpreter fallback, counted and shown in the game. The Spectrum has no player's record yet (no
+  runtime-feedback kind), so a new conversion does not make that code native. A deeper scan level does (section 6 has the measure).
+- **Paths are not shared between players** (gate G16, declined on its measure: section 6).
 
 ## 6. Qualification
 
-The machine's column of [QUALIFICATION.md](QUALIFICATION.md) (22 November 2026): G2 to G6, G10, G12 and G13 `Y`; G1, G8, G9 and
-G15 `P`; G7 `-`; G16 `?`; G11 `P` since 27 November (agreement with MAME 0.289, below); G14 `Y` since 27 November (the owner's
-play from Export); the evidence is in its entries
-there. The
-panel of the study, used for the gates once conversions run: Manic Miner (the first game: 48K, the beeper, the ROM's
+The machine's column of [QUALIFICATION.md](QUALIFICATION.md), as read for the exit on 27 November 2026 (the evidence is in its
+entries there):
+
+| Gates | Reading |
+|---|---|
+| G2 to G6, G10, G12, G13, G14 | `Y` |
+| G1 (status) | `P`: the profile, this page, the Options tab and the README's status table say supported; COMPATIBILITY's paragraph is written with the release's pages |
+| G8 (liveness) | `P`: seven of the eight panel games animate to the end of their play route; Elite's snapshot halts (section 5) |
+| G9 (route depth) | `P`: random routes, and an 18,000-frame route on four games; no game was played to its end |
+| G11 (hardware evidence) | `P`: agreement with MAME 0.289 (below); no real Spectrum |
+| G15 (honesty) | `P`: this page, the Options notes and the reports were read again after the exit; the release's README and COMPATIBILITY text is still to be read |
+| G7 (saves) | `-`: a snapshot has no cartridge or battery save |
+| G16 (shared paths) | `-`: declined on its measure (below) |
+
+**The exit (27 November 2026).** The owner played the delivered games from `Export\Games\ZX Spectrum` on his gamepad and said:
+« Je viens de tester Arkanoïd et c'est parfait aussi. Bien joué. Je passe le G14 pour le Spectrum. » He decided the same day that
+the machine leaves the experimental status in this release. It is his acceptance, not a gameplay validation of each game, and
+physical latency was not measured.
+
+**Path sharing is declined (G16 `-`), on this measure.** A path received from another player can only make native what a
+conversion leaves on the interpreter. So each of the six delivered games replayed, on the native code its Standard conversion
+learned, the two 18,000-frame long routes that the Extended and Thorough levels add:
+
+| Game | Interpreted on long route 1 | Interpreted on long route 2 |
+|---|---|---|
+| Arkanoid | 149 of 164.9 million instructions (under 0.001 %) | 27 of 163.7 million (under 0.001 %) |
+| Robocop | 934 of 93.3 million (0.001 %) | 67,741 of 129.2 million (0.052 %) |
+| Jetpac | 14,063 of 137.5 million (0.010 %) | 15,707 of 137.4 million (0.011 %) |
+| Manic Miner | 34,419 of 87.8 million (0.039 %) | 45,726 of 85.1 million (0.054 %) |
+| Match Day II | 125,934 of 152.6 million (0.082 %) | 97,872 of 152.0 million (0.064 %) |
+| Head over Heels | 119,537 of 134.3 million (0.089 %) | 118,060 of 133.1 million (0.089 %) |
+
+At most 0.089 % of the instructions ran on the interpreter. Under the owner's rule of 14 November 2026 (sharing that adds nothing
+useful is not kept; the Nintendo 64 was declined at 2.3 % to 11.5 %), the Spectrum does not share its paths
+(`DECLINED['path_sharing']`). Two limits of this measure: the routes are random walks, not a player going through a game's
+levels; and the check programs of Head over Heels and Match Day II are those of 22 November.
+
+The panel of the study, used for the gates: Manic Miner (the first game: 48K, the beeper, the ROM's
 interrupt handler), Jetpac (16K), Arkanoid (the floating bus question), Match Day II (two players), Head over Heels (128K
 paging and the AY), Robocop (the whole game in the 128K banks, sampled speech), Elite (heavy maths, the keyboard as the
 controller), The Hobbit (typing and printing through the ROM); in reserve Uridium and Rainbow Islands.
@@ -248,7 +287,7 @@ This is agreement with a second emulator (G11 `P`), not hardware proof.
 
 ## 7. Multiplayer
 
-Rollback (smooth) on the game's own snapshots, two seats, offered nowhere while the machine is developer only
+Rollback (smooth) on the game's own snapshots, two seats, offered like any listed machine with a session
 ([MULTIPLAYER.md](MULTIPLAYER.md)). A snapshot is the quick state's body (the CPU, then every field of the machine: the RAM
 banks, the ULA, the keyboard rows and the Kempston latch, the AY's counters, the frame position) in memory, about 203 KiB, checked
 whole and applied only then; the digest is FNV-1a 64 over the same bytes with the picture and the sound box left out (the next

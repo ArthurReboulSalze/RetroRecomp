@@ -1159,8 +1159,8 @@
     "front_end_window": "Torna alla finestra",
     "tip_conversion_queue": "Coda di conversione: le ROM in attesa di essere convertite. Aggiungile, scegli le copertine e convertile.",
     "options_zxs": "ZX Spectrum",
-    "options_zxs_note": "Profilo sperimentale in sviluppo: gli snapshot ZX Spectrum 16K, 48K e 128K (.z80, .sna o uno ZIP che ne contiene uno) vengono riconosciuti, ma non viene ancora convertito nulla. I giochi gireranno sulla ROM dello Spectrum, che Amstrad permette agli emulatori di ridistribuire: viene scaricata una volta da una fonte fissata, oppure scegli la tua ROM nelle righe qui sotto. Ancora niente cassette, +2A, +3 o dischi.",
-    "scan_note_zxs": "Consigliato: Standard. Profilo in sviluppo: i livelli di analisi sono accettati, ma non viene ancora convertito nulla.",
+    "options_zxs_note": "Profilo ZX Spectrum: snapshot dei 16K, 48K e 128K (.z80, .sna o uno ZIP che ne contiene uno). Uno snapshot è un gioco già caricato: ancora niente cassette, +2A, +3 o dischi, e un gioco che carica il livello successivo dalla cassetta si ferma lì. I giochi girano sulla ROM dello Spectrum, che Amstrad permette agli emulatori di ridistribuire: viene scaricata una volta da una fonte fissata, oppure scegli la tua ROM nelle righe qui sotto. La contesa di memoria dell’ULA e il bus flottante seguono le temporizzazioni pubblicate, non misurate su un vero Spectrum. Il gamepad è il joystick per cui lo snapshot è stato salvato (tasti cursore, Kempston o Interface 2). La ROM è tradotta in anticipo e il codice del gioco, eseguito dalla RAM, viene appreso; il resto è interpretato e contato. Menu, filtri e controlli comuni; F8 salva e F9 carica un salvataggio rapido.",
+    "scan_note_zxs": "Consigliato: Standard. I livelli più lunghi aggiungono percorsi lunghi; il codice che i percorsi non raggiungono resta interpretato e contato.",
     "zxs_rom48_label": "ZX Spectrum: la tua ROM 48K (16 KiB, facoltativa)",
     "coleco_bios_label": "ColecoVision: la tua BIOS (8 KiB, obbligatoria)",
     "zxs_rom128_label": "ZX Spectrum: la tua ROM 128K (32 KiB, o le sue due metà da 16 KiB affiancate, facoltativa)"

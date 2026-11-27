@@ -75,7 +75,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Commodore Amiga 1200 | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
-| ZX Spectrum | experimental | `████████░░` 77 % | ✅ 9 · 🟡 5 · ❔ 1 |
+| ZX Spectrum | supported | `████████░░` 82 % | ✅ 9 · 🟡 5 · ❔ 0 |
 | PC Engine CD / TurboGrafx-CD | experimental | `████████░░` 75 % | ✅ 10 · 🟡 4 · ❔ 2 |
 | SG-1000 | experimental | `█████████░` 89 % | ✅ 11 · 🟡 3 · ❔ 0 |
 | Game Boy Color | experimental | `████████░░` 75 % | ✅ 9 · 🟡 6 · ❔ 1 |
@@ -101,7 +101,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ✅ | ✅ | ✅ | ✅ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
-| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 | 🟡 | ❔ | ❔ | ➖ | ❔ | ➖ | ❔ |
+| G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 | 🟡 | ➖ | ❔ | ➖ | ❔ | ➖ | ❔ |
 
 <!-- qualification-gauges:end -->
 
@@ -131,7 +131,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+, zxs = ZX Spect
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
 | G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | Y | Y | Y | Y |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P | P | P | P | P | P | Y |
-| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P | P | ? | ? | - | ? | - | ? |
+| G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P | P | - | ? | - | ? | - | ? |
 
 The page of each console, which the README links its line to (a console of the matrix needs one):
 
@@ -257,6 +257,24 @@ The page of each console, which the README links its line to (a console of the m
     the game's own rules (ZX_SPECTRUM.md, section 6b), and he saw left become the fast side with the check given to him.
   - This is the owner's acceptance. It is not a gameplay validation of each game from end to end, and physical latency was not
     measured.
+- ZX Spectrum, the exit (27 November 2026; branch `spec/zxs-supported` on main 9ce0f3a6; the matrix reading is the specialist's,
+  the lead merges): **the ZX Spectrum leaves the experimental status in the release after 1.9.1**, on the owner's decision of the
+  same day, after his G14. The profile is `supported` and listed in every installation (it was developer-only).
+  - **G16 moves from `?` to `-`**: path sharing is declined on its measure, under the owner's rule of 14 November 2026. Each of
+    the six delivered games replayed, on the native code its Standard conversion learned, the two 18,000-frame long routes a
+    deeper level adds. From 0.000 % to 0.089 % of the instructions ran on the interpreter (Arkanoid 149 and 27 instructions;
+    Head over Heels 119,537 and 118,060 of about 134 million), which is all a received path could make native. Random routes, not
+    a player going through a game's levels. `tests/test_machine_registry.py` lists the machine in `DECLINED['path_sharing']`.
+  - **G1 stays `P`**: the profile, the machine page, the Options tab in eight languages and the README's status table say
+    supported; `tools/status_lint.py` still reads « experimental » in COMPATIBILITY's paragraph and the README's « In development »
+    text, which are written with the release's pages. It reads `Y` once they agree.
+  - **G15 stays `P`**: the machine page, the Options notes and the report fields were read again after the exit for « exact »,
+    « zero latency » and hardware claims: none. The release's README and COMPATIBILITY text is still to be read.
+  - **G8 and G9 stay `P`**: seven of the eight panel games animate to the end of their play route, and Elite's snapshot halts in
+    its own decryption (in MAME 0.289 too; its report says `route_stop`). Routes are random, with an 18,000-frame route on four
+    games.
+  - Not done: a two-PC multiplayer test of a Spectrum game. The game keeps no player's record (no runtime-feedback kind), so
+    code past the routes stays interpreted and counted. Not claimed: hardware fidelity, gameplay validation, physical latency.
 
 - Atari ST (6 to 9 November 2026; experimental profile of 1.7.1, raised on the branch of 1.7.2): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees, and the machine is offered to players in 1.7.1. G2 `P`: the common report v2 of every conversion. G3 `P`:

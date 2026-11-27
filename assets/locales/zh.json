@@ -1159,8 +1159,8 @@
     "front_end_window": "回到窗口",
     "tip_conversion_queue": "转换队列：等待转换的 ROM。添加它们，选择封面，然后转换。",
     "options_zxs": "ZX Spectrum",
-    "options_zxs_note": "实验性配置，开发中：可以识别 ZX Spectrum 16K、48K 和 128K 的快照（.z80、.sna，或包含其中之一的 ZIP），暂不转换任何内容。游戏将使用 Spectrum 自己的 ROM 运行，Amstrad 允许这类软件再分发它：它会从一个固定的来源只下载一次，你也可以在下面的行中选择你自己的 ROM。磁带、+2A、+3 和磁盘暂不支持。",
-    "scan_note_zxs": "建议：标准。配置开发中：可以选择扫描级别，不过暂不转换任何内容。",
+    "options_zxs_note": "ZX Spectrum 配置：16K、48K 和 128K 的快照（.z80、.sna，或包含其中之一的 ZIP）。快照是已经载入的游戏：磁带、+2A、+3 和磁盘暂不支持，需要从磁带载入下一关的游戏会停在那里。游戏使用 Spectrum 自己的 ROM 运行，Amstrad 允许这类软件再分发它：它会从一个固定的来源只下载一次，你也可以在下面的行中选择你自己的 ROM。ULA 的内存等待和未连接端口的读数（floating bus）按照公开的时序实现，没有在真机上测量。手柄对应快照保存时所用的摇杆（光标键、Kempston 或 Interface 2）。ROM 预先翻译，从 RAM 运行的游戏代码会被学习；其他指令按解释执行计数。菜单、滤镜和控制通用；F8/F9 保存和读取即时存档。",
+    "scan_note_zxs": "建议：标准。更长的级别会增加长路线；路线没有走到的代码仍由解释器执行并计数。",
     "zxs_rom48_label": "ZX Spectrum：你自己的 48K ROM（16 KiB，可选）",
     "coleco_bios_label": "ColecoVision：你自己的 BIOS（8 KiB，必需）",
     "zxs_rom128_label": "ZX Spectrum：你自己的 128K ROM（32 KiB，或同一文件夹中两个 16 KiB 的文件，可选）"

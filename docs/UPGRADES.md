@@ -499,6 +499,22 @@ changes for a player:
 no export is rebuilt or rediscovered. The role stamps of all 27 machines were compared before and after: identical. Locale files
 (`assets/locales`) gain one key, `base_error_toolarge`.
 
+## ZX Spectrum: supported, and listed in every installation (next release)
+
+The ZX Spectrum leaves the experimental status on the owner's decision of 27 November 2026, after his play test (G14).
+
+- **What changes:** the profile's status is `supported` and it is no longer developer-only: the window, the batch and the Options
+  tab list it in every installation. A report's `status` field follows the profile. The Options note and the scan note are
+  rewritten in the eight languages. Path sharing is declined on its measure (`DECLINED['path_sharing']`, G16 `-`): at most 0.089 %
+  of the instructions of a long route would become native. Five risk cases join `tools/campaign-risk-cases.json`.
+- **What does not change:** the machine, its native code and its routes. A game converted before and after is the same game.
+- **Known limits, unchanged:** snapshots only (no tapes, +2A, +3 or disks); lines drawn at their end; a snapshot without a frame
+  position starts at the interrupt's end; no player's record of the code reached past the routes
+  ([ZX_SPECTRUM.md](ZX_SPECTRUM.md), section 5).
+
+**Stamps**: the ZX Spectrum's game stamp (its profile and its conversion module); nothing else. The machine was developer-only,
+so the only exports are the maintainer's own: a new conversion rebuilds them.
+
 ## ZX Spectrum: converted through batch and the window on a developer tree (next release)
 
 `zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`

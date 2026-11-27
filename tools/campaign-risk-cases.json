@@ -195,6 +195,13 @@
       {"title": "R4 - Ridge Racer Type 4", "category": "region", "reason": "NTSC-J disc from a CUE sheet with CD-audio tracks: needs the player's Japanese BIOS, the region the converter must match", "source": "docs/QUALIFICATION.md"},
       {"title": "WIPEOUT2", "category": "pal-cd-audio", "reason": "WipEout 2097, PAL at 50 Hz from a CUE sheet whose music is CD audio: the frame rate and the drive's audio path", "source": "docs/QUALIFICATION.md"},
       {"title": "Gran Turismo 2", "category": "memory-card", "reason": "Simulation Mode disc (the Arcade disc is apart): saves its licences and garage to the first memory card early, the case for saves read back in a fresh process", "source": "docs/PLAYSTATION.md"}
+    ],
+    "zxs": [
+      {"title": "Arkanoid", "category": "floating-bus", "reason": "Syncs its frame on the floating bus (port 28FFh): froze without it, ran twice a frame when the bus was sampled one T-state early (fixed 27 November 2026); the paddle is faster towards the ball by the game's own rule", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Elite", "category": "route-stop", "reason": "Its snapshot halts with interrupts disabled inside its own decryption about 50 frames in, in MAME 0.289 too: the title never animates and the report must say so (route_stop), not call it playing", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Match Day II", "category": "reviewed-start", "reason": "Polls the Fuller port every frame (an idle Fuller box is given by reviewed data), and its start picks « Kempston joystick » in a menu that waits for ever unless a Kempston answers at port 1Fh", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Robocop", "category": "128k-banks", "reason": "128K: the whole game lives in the paged banks, with sampled speech on the AY; starts through reviewed start data (a control menu, then a typed screen)", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Jetpac", "category": "start-phase", "reason": "16K, a .z80 version 1 with no frame position: starts at the interrupt's end, so its random choices part from MAME 0.289's after frame 368 (a known limit, not adopted)", "source": "docs/ZX_SPECTRUM.md"}
     ]
   }
 }

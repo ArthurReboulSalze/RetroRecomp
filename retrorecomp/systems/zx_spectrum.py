@@ -1,10 +1,7 @@
-"""ZX Spectrum profile (experimental, in development: see docs/ZX_SPECTRUM.md).
+"""ZX Spectrum profile (supported in the release after 1.9.1, on the owner's play test of 27 November 2026; opened on 21 November
+2026 as an experimental, developer-only profile: see docs/ZX_SPECTRUM.md).
 
-Step 1, stage 1 of the machine: the profile, the snapshot reader, the ROM pin and the report writer exist; nothing converts.
-The machine is a developer-only profile until it does (as the Game Boy Advance was): the window and the batch do not list
-it, and a `.z80` or `.sna` file says so instead of being called an unknown console.
-
-What it will convert: snapshots of the 16K, 48K and 128K (and the +2, a 128K with another menu ROM), `.z80` versions 1 to 3
+What it converts: snapshots of the 16K, 48K and 128K (and the +2, a 128K with another menu ROM), `.z80` versions 1 to 3
 and `.sna`, from a file or a ZIP holding one; on the shared banked Z80 chain the Master System and the MSX use, with the ULA,
 the beeper, the 128K paging and the AY-3-8910 in our own C. Not yet: tapes, the +2A and +3, disks, the Interface 1.
 """
@@ -12,8 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import (Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile,
-               UnsupportedConsoleError)
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile
 from ..z80_chain import Z80Machine, Z80RegionMap
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
 
@@ -40,14 +36,14 @@ class ZxSpectrumProfile(SystemProfile):
     export_folder = 'ZX Spectrum'
     # The 48K runs 69,888 T-states a frame and the 128K 70,908, both close to 50 Hz: the machine had no 60 Hz model.
     video_modes = ('pal',)
-    status = 'experimental'
+    status = 'supported'       # the owner's decision of 27 November 2026 after his play test (G14; docs/ZX_SPECTRUM.md, section 6)
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py): the translated code the
     # shared banked Z80 chain writes, as on the MSX; the machine's own files join them with its conversion.
     simulation_sources = (SimulationSource('generated/game_banked_index.c'), SimulationSource('generated/game_banked_ops_*.c'),
                           SimulationSource('generated/game_banked.h'), SimulationSource('zxs_banked_loop.inc'))
     linux = 'witnessed'
-    scope_note = ('ZX Spectrum 16K, 48K and 128K snapshots (.z80, .sna), in development, for developers: converted with the '
-                  'ULA\'s contention and the floating bus; no tapes, +2A, +3 or disks')
+    scope_note = ('ZX Spectrum 16K, 48K and 128K snapshots (.z80, .sna): converted with the ULA\'s contention and the floating '
+                  'bus; no tapes, +2A, +3 or disks')
     # One processor; the ULA, the beeper and the AY-3-8910 are chips of our own C, not CPUs.
     cpus = (Cpu('z80', 'main', 'cycles'),)
     media_kinds = ('snapshot',)
@@ -69,10 +65,9 @@ class ZxSpectrumProfile(SystemProfile):
     # (every game holds a Spectrum ROM, the player's own or the pinned one).
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md',
                     'licenses/zx-spectrum-roms.md')
-    developer_only = True
     # Multiplayer (docs/HOST_KIT.md 2.5, the multiplayer checklist of 21 Nov 2026): rollback on the game's own snapshots, two seats
     # (player 1 on the snapshot's joystick interface, player 2 on the Interface 2 keys player 1 does not use), the host typing for
-    # everyone; no save to carry. Offered nowhere while the profile is developer only.
+    # everyone; no save to carry.
     netplay_session = True
     netplay_seats = 2
     netplay_rollback = True
@@ -157,10 +152,6 @@ class ZxSpectrumProfile(SystemProfile):
         taken = len(case['cycles']) > length(cycles(group, opcode)[0])
         return delay(group, opcode, state, lambda address: ram.get(address, 0), start, memory, io, taken=taken)
 
-    def available(self) -> bool:
-        from ..zxs_conversion import developer_available
-        return developer_available()
-
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         if suffix == '.zip':
             from ..zxs_snapshot import zip_holds_snapshot
@@ -168,8 +159,6 @@ class ZxSpectrumProfile(SystemProfile):
                 return None
         elif suffix not in self.extensions:
             return None
-        if not self.available():
-            raise UnsupportedConsoleError('The experimental ZX Spectrum profile is unavailable in this installation.')
         if selected_system and selected_system != self.id:
             raise ConsoleMismatchError('Detected ZX Spectrum; choose Automatic or ZX Spectrum.', self.id)
         return self
