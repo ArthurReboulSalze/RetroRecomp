@@ -316,7 +316,7 @@ class DetectionTableTests(unittest.TestCase):
                 'gg.rom': sms_rom(region=6), 'snes.bin': snes_rom(), 'snes-copier.rom': snes_rom(copier=True),
                 'gb.bin': gb_rom(), 'gb-72banks.bin': gb_rom(size_code=0x52), 'gb-badsum.bin': gb_rom(bad_checksum=True),
                 'zeros.bin': bytes(0x8000), 'tiny.bin': b'abc', 'disk.dim': bytes(1024), 'disk.xdf': bytes(1024),
-                'disk.m3u': bytes(64), 'good.neo': neo_file(), 'bad.neo': neo_file(bad=True),
+                'disk.m3u': b'disk.dim\n', 'empty.m3u': bytes(64), 'good.neo': neo_file(), 'bad.neo': neo_file(bad=True),
                 'foreign.a26': bytes(0x8000), 'foreign': bytes(0x8000), 'z-corrupt.zip': b'PK\x03\x04 not a zip'}.items():
             write(name, data)
         zipped(cls.root / 'z-sms.zip', [('game.sms', sms_rom(region=0))])
@@ -362,6 +362,8 @@ class DetectionTableTests(unittest.TestCase):
         ('game.nes', 'gb', ('mismatch', 'nes')), ('plain.sms', 'zz', ValueError),
         # the X68000 claims its media by extension, before anything else
         ('disk.dim', None, 'x68'), ('disk.xdf', None, 'x68'), ('disk.m3u', None, 'x68'), ('disk.dim', 'x68', 'x68'),
+        # since 1.10.0 a playlist that lists no X68000 disk is not the X68000's (1.6.2 took any .m3u by its extension)
+        ('empty.m3u', None, UnsupportedConsoleError),
         ('disk.xdf', 'sms', ('mismatch', 'x68')),
         # Neo Geo: a container, or a ZIP named like a cartridge set
         ('good.neo', None, 'ng'), ('good.neo', 'ng', 'ng'), ('good.neo', 'md', ('mismatch', 'ng')),
