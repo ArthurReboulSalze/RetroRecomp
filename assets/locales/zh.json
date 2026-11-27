@@ -653,7 +653,7 @@
     "options_psx_note": "Sony PlayStation 配置：光盘（EBOOT .pbp、CUE/BIN、CloneCD .ccd、ISO），NTSC 和 PAL，双人。请提供自己的 BIOS（没有时使用 OpenBIOS）。原生代码来自游戏实际运行过的部分，其他部分仍由解释器执行并计数。",
     "psx_bios": "PlayStation BIOS（文件）",
     "options_pcecd": "PC Engine CD",
-    "options_pcecd_note": "PC Engine CD 配置（开发中）：CD-ROM2 光盘（CHD、CUE/BIN、ISO）。请提供自己的 System Card（会校验，绝不提供）。目前只识别光盘，不转换。",
+    "options_pcecd_note": "PC Engine CD（实验性）：CD-ROM2 与 Super CD-ROM2 光盘（CHD、CUE/BIN、ISO）。请提供自己的 System Card（会校验，绝不提供）。光盘包含在游戏中。",
     "pcecd_system_card": "PC Engine CD System Card（文件）",
     "knowledge_achievement": "成就解锁",
     "knowledge_discovery": "项发现",

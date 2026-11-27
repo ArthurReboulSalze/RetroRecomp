@@ -653,7 +653,7 @@
     "options_psx_note": "Профиль PlayStation: диски EBOOT (.pbp), CUE/BIN, CloneCD (.ccd) или ISO, NTSC и PAL, два игрока. Собственный BIOS входит в игру; без него используется свободный OpenBIOS. Нативный код берётся из того, что игра реально выполняла; остальное остаётся интерпретируемым и подсчитывается. BIOS не загружается и не поставляется.",
     "psx_bios": "BIOS PlayStation (файл или папка)",
     "options_pcecd": "PC Engine CD",
-    "options_pcecd_note": "Профиль PC Engine CD (в разработке): диски CD-ROM2 в форматах CHD, CUE/BIN или ISO. Нужна собственная System Card, она проверяется по хешу и не поставляется. Пока только определяет диски и ничего не конвертирует.",
+    "options_pcecd_note": "PC Engine CD (экспериментально): диски CD-ROM2 и Super CD-ROM2 в форматах CHD, CUE/BIN или ISO. Нужна собственная System Card, она проверяется по хешу и не поставляется. Диск содержится в самой игре.",
     "pcecd_system_card": "System Card PC Engine CD (файл или папка)",
     "knowledge_achievement": "Достижение получено",
     "knowledge_discovery": "находка",

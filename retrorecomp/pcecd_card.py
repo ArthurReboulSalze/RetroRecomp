@@ -27,14 +27,14 @@ class KnownCard:
     name: str
     version: str
     region: str           # 'usa' or 'japan'
-    checked: str          # 'engine' (the engine's own evidence boots it), 'untried' (known by hash only)
+    checked: str          # 'engine' (the engine's own evidence boots it), 'panel' (it booted every disc of our panel), 'untried' (known by hash only)
 
 
 KNOWN = (
     # Super System Card 3.0, the TurboDuo's (the card the pinned engine's documents name: its SHA-1 and SHA-256 are in its FIRMWARE.md).
     KnownCard('d02611d99921986147c753df14c7349b31d71950', 'Super System Card', '3.0', 'usa', 'engine'),
     # Super System Card 3.0 of the PC Engine Duo (Japan), the usual `syscard3.pce` of the frontends.
-    KnownCard('79f5ff55dd10187c7fd7b8daab0b3ffbd1f56a2c', 'Super System Card', '3.0', 'japan', 'untried'),
+    KnownCard('79f5ff55dd10187c7fd7b8daab0b3ffbd1f56a2c', 'Super System Card', '3.0', 'japan', 'panel'),
 )
 BY_SHA1 = {card.sha1: card for card in KNOWN}
 

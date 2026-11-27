@@ -12,7 +12,7 @@ owner has not played them (G14, step 2). The decisions below are the owner's, ta
   in stage 1, section 4).
 - **The disc inside the executable** (the PlayStation's way: the game holds the whole image and reads it in place) and **no DLL beside it**:
   the CHD decoder (libchdr, BSD-3-Clause) is linked into the game.
-- **Authentic drive timing**: loading takes what the real drive takes. A speed-up is not part of this version.
+- **The drive's own timing**: loading takes the time the engine's drive model gives it (seek and read delays), never shortened; it was not compared with a real drive. A speed-up is not part of this version.
 - **Backup memory** (the 2 KiB of the CD system), kept beside the game like the PC Engine's.
 - **Not in this version:** the Arcade Card (the engine has its Duo profile; no disc of it in the maintainer's library), SuperGrafx, System
   Cards that are not in the table, multi-disc games (there is none), a disc image that needs a protection circumvented.
