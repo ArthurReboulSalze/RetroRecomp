@@ -345,10 +345,10 @@ def state_config(game_set, title: str) -> str:
     stem = Path(executable_name(title)).stem if os.name == 'nt' else executable_name(title)
     return ('#pragma once\n#define RR16_STATE_SYSTEM 4\n#define RR16_STATE_PAL 0\n'
             f'#define RR16_STATE_ROM {json.dumps(game_set.sha256)}\n#define RR16_STATE_ABI {json.dumps(abi.hexdigest())}\n'
-            # The previous release's state key is added after this line as `#define RR16_STATE_COMPAT_ABI "<key>"` by
-            # the release that follows it when the serialized bytes did not change (docs/GAME_STATES.md, Windows only:
-            # the key of a Linux build also hashes its target); the keys of older releases are never kept. None in the
-            # tree of 1.6.4: the quick state changed.
+            # No compatibility key: a quick state of another build is refused cleanly (docs/GAME_STATES.md).
+            # One key per build, on Windows and on Linux (a Linux key also hashes its target).
+            # The rule holds from 1.6.5 for every machine; tests/test_legacy_compat.py guards it,
+            # so that no release adds the key of an earlier one back.
             f'#define RR16_STATE_NAME {json.dumps(stem)}\n')
 
 

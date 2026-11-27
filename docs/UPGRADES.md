@@ -48,12 +48,9 @@ N it covers the exports, receipts, quick states and local files that release N-1
   1.6.0; the tree of 1.6.1 listed the stamps of 1.6.0 ([history](UPGRADES_HISTORY_OLDER.md#exports-of-160-in-161)); the tree of 1.6.2 listed those of
   1.6.1 ([history](UPGRADES_HISTORY_OLDER.md#exports-of-161-in-162)); the tree of 1.6.3 listed those of 1.6.2 ([history](UPGRADES_HISTORY_OLDER.md#exports-of-162-in-163)); the
   tree of 1.6.4 lists none, a full reconversion of every console ([below](UPGRADES_HISTORY_OLDER.md#exports-of-163-in-164)).
-- The quick-state keys of release N-1 are the only `RR16_STATE_COMPAT_ABI` lines a build writes
-  ([GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only)). None in the tree of 1.6.0; the Mega Drive, Neo
-  Geo and CPS-1 keys of 1.6.0 (Windows) in the tree of 1.6.1. The Mega Drive, Super Nintendo, Neo
-  Geo and CPS-1 keys of 1.6.1 (Windows) in the tree of 1.6.2. The same four consoles' keys of 1.6.2 (Windows) in the
-  tree of 1.6.3. The Neo Geo key of 1.6.3 (Windows) alone in the tree of 1.6.4: the Mega Drive and Super Nintendo keys did
-  not move, and the CPS-1 and NES states changed ([below](UPGRADES_HISTORY_OLDER.md#exports-of-163-in-164)).
+- Quick states are the exception: from 1.6.5 no compatibility key is written for any release or machine, and a quick state
+  of another build is refused cleanly ([GAME_STATES.md](GAME_STATES.md#the-rule-the-previous-release-only), which also
+  keeps the history of the keys listed before).
 - A receipt of another schema than the current one (3) is never current, and a report is read in the places the current
   writers use (`scan_level`, `scan.level`), not in those of releases before 1.6.0.
 - Nothing migrates the files of a release older than N-1 (collection inventories without a recorded base, the X68000
@@ -483,6 +480,26 @@ start in the arcade style; the handhelds name their screen). Every host-kit mach
 upgraded, never rediscovered. The previous release ignores the two new keys.
 
 ## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (1.10.0)
+
+## Mega Drive and Super Nintendo: no compatibility key for quick states (next release)
+
+Builds of 1.7.6 to 1.9.1 still accepted a quick state of 1.7.4 (the key listed once for 1.7.5 stayed in the table), while
+refusing a 1.9.1 one, although the state layout had changed since 1.7.4. The table (`console16_state.STATE_ABI_174`), the line
+`write_config` wrote for it and the loader's list of accepted keys (`native/console16_state.c`) are removed: the loader compares
+one key, the build's own. A state of any other build is refused (« No compatible quick state to load »; a headless run exits 7),
+and nothing is loaded. Cartridge saves are not quick states and are untouched. The Neo Geo, CPS-1, CPS-2, PC Engine and
+PlayStation never listed a key in 1.10.0; the X68000 has its own state code and none either.
+
+- **Proof:** `tests/test_legacy_compat.py` builds the real loader with the header the converter writes (Mega Drive and Super
+  Nintendo) and offers it the 1.7.4 keys, a key one character off and a foreign one: all refused, nothing restored; its own key
+  loads. Sonic The Hedgehog and Super Mario World converted with this change: `tools/console16_state_selftest.py` passes (fresh
+  process replay, 8 invalid files refused) and each refuses a state carrying the 1.7.4 key (exit 7).
+- **Stamps** (`compilation_inputs.role_stamps`, against the tree before the change): the **game** stamps of the Mega Drive, the
+  Super Nintendo, the Neo Geo, CPS-1, CPS-2, the PC Engine, the PC Engine CD and the PlayStation move (they share
+  `console16_state.c`); all of them already move in this release. No host or build stamp moves.
+- **Quick-state keys:** the Mega Drive's and the Super Nintendo's move (their key hashes `console16_state.c`; both had already
+  moved since 1.9.1, so no further state of a release is refused). The Neo Geo, CPS-1 / CPS-2, PC Engine and PlayStation keys are
+  unchanged. **Hot path:** none (the comparison is made when a state is loaded).
 
 ## PC Engine CD: a new memory starts formatted, and a disc records nothing (next release)
 

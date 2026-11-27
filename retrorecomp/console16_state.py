@@ -95,13 +95,6 @@ bool rr_snes_driver_load(const uint32_t state[2]) {
 '''
 
 
-# No compatibility key is listed in the tree of 1.6.4 (docs/GAME_STATES.md, "States written by release 1.6.3"): the key of
-# the Mega Drive and of the Super Nintendo is the very same value in 1.6.3 and 1.6.4 (it hashes their listed native files,
-# the layout versions, the pinned revisions and, for the Super Nintendo, the fingerprints of the snes_* modules, none of
-# which moved), so the states of 1.6.3 match the build's own `RR16_STATE_ABI`. tests/test_legacy_compat.py pins that
-# value: a later edit that moves the key must add the 1.6.3 key here as `MD_STATE_ABI_163` / `SNES_STATE_ABI_163`.
-
-
 def state_layout_files(system_id: str) -> list:
     """The native files that fix this console's quick-state layout: the listed top-level native files it owns
     (retrorecomp/stamp_inputs.py, never what sits on disk) minus the ones of the host role (`compilation_inputs.role`:
@@ -114,7 +107,7 @@ def state_layout_files(system_id: str) -> list:
 def state_key(files, system_id: str, revisions: dict, target) -> str:
     """The quick-state key: `files` as (name, bytes) in order, the layout version, for the Super Nintendo the fingerprints of
     its snes_* modules, the pinned revisions, and on a target other than Windows its name (`platforms.target_id`). The one code
-    path for this build's key and for the keys of the previous release it accepts."""
+    path for this build's key."""
     digest = hashlib.sha256()
     for name, data in files:
         digest.update(name.encode()); digest.update(data)
@@ -137,21 +130,6 @@ def build_target():
     return target_id()
 
 
-# The keys of release 1.7.4, per target, accepted by this build. Since 1.7.5 the key hashes the layout files only, which are
-# byte for byte those of 1.7.4 for both consoles (docs/GAME_STATES.md), so a 1.7.4 state has the same layout. Each value is
-# `state_key` over every native file the console owned in 1.7.4, with the bytes of the v1.7.4 tag (the 1.7.4 algorithm), for
-# that target: tests/test_legacy_compat.py recomputes them from the tag, and the Windows ones are also the keys real 1.7.4
-# builds wrote. The release after 1.7.5 drops this table (only the previous release's states are kept).
-STATE_ABI_174 = {
-    'md': {None: '0b051c9ebd72a258642f3caf6925e90792bd96ff5138220b9c10be807e05c47f',
-           'linux-x86_64': '985477fdd25d50d0e1624f1af49839c397c122e1e542a48d71437f33c2d1132a',
-           'linux-arm64': '87bee4a352ecd5f8cf5cee3b64a3526a3beecee04bb37fd621d13c3a59b5d300'},
-    'snes': {None: 'ee653e8dabef3057b9e16f59c6487e26f1daab1551a03010651787c39fd72189',
-             'linux-x86_64': '5e1b1e33af33400f5bc6a756d0c3c31c0a1e52c100ff78a9562a75815914d743',
-             'linux-arm64': '1ae2238fd3fd36671ff56e4384b7c9aefbfdb26c1163ea579d5a23b514fbf167'},
-}
-
-
 def write_config(project: Path, rom, system_id: str, title: str, revisions: dict):
     from .core import slug
     from .compilation_inputs import input_bytes
@@ -165,12 +143,6 @@ def write_config(project: Path, rom, system_id: str, title: str, revisions: dict
             '\n#define RR16_STATE_ROM '+json.dumps(rom.sha256)+
             '\n#define RR16_STATE_ABI '+json.dumps(key)+
             '\n#define RR16_STATE_NAME '+json.dumps(slug(title),ensure_ascii=True)+'\n')
-    previous = STATE_ABI_174.get(system_id, {}).get(build_target())
-    if previous and previous != key:
-        text += '#define RR16_STATE_COMPAT_ABI '+json.dumps(previous)+'\n'
-    # Quick states of the PREVIOUS release only resume in this build. When the key of that release is not the build's own
-    # (the key moved), it is added here as `#define RR16_STATE_COMPAT_ABI "<key>"` (native/console16_state.c accepts the
-    # keys a build defines, next to RR16_STATE_ABI, and nothing else), for the build's own target (a Linux key also hashes its
-    # target). The release that follows adds its predecessor's key and drops the older ones (docs/GAME_STATES.md). 1.7.5
-    # lists the 1.7.4 key (STATE_ABI_174): its layout files are those of 1.7.4, only the files the key hashes changed.
+    # One key and no other: a quick state of another build is refused cleanly (docs/GAME_STATES.md). No compatibility key is
+    # written for any release.
     (project / 'retro16_state_config.h').write_text(text,encoding='ascii')
