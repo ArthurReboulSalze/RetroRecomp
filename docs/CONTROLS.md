@@ -19,7 +19,7 @@ recognised Light Phaser, Zapper, Menacer and Super Scope games: see
 | F2 | Settings: a menu of tiles (1.7.4), one per page: each player's keyboard and gamepad, the gun or DIP page, the options. Enter opens a page, Esc comes back |
 | F3 | Next filter: sharp, Scale2x, scanlines, xBR smooth. On a 3D machine (1.7.0, none yet): the graphics page, see [Sticks, vibration, graphics and discs](#sticks-vibration-graphics-and-discs) |
 | F4 | Window → pixel-perfect fullscreen → fit fullscreen → **stretched fullscreen** (1.7.4: the whole screen, the aspect ignored) → window; a short notice names the mode |
-| F5 | Master System, Game Gear and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode. On the Game Gear the option exists from 1.6.5 on (before, F5 answered "Config unavailable", since 0.25.0) |
+| F5 | Master System, Game Gear, SG-1000, ColecoVision and NES: toggle extra sprites (flicker reduction); Neo Geo: toggle enhanced mode. On the Game Gear the option exists from 1.6.5 on (before, F5 answered "Config unavailable", since 0.25.0) |
 | F6 | Keyboard/gamepad autofire on/off for mapped fire buttons |
 | F7 | Next menu language: EN → FR → IT → ES → DE |
 | F8 | Save/replace the game's quick state |
@@ -169,7 +169,7 @@ buttons 1 and 2, on two pads, and **Pause**, the console's NMI. Player 1: the ar
 player 2: the numeric keypad (5, 2, 1, 3 move, 8 and 9 are the buttons, 7 is Pause). On a controller, the D-pad moves, A is button 1, B is button 2 and
 Start is Pause. Pause raises the console's NMI once: the game's own pause routine runs, the kit's Pause menu is not used. Every key can be changed in F2
 (see the common rules above); F6 autofire, F8 and F9 quick states, the F2 pages and the speed and sound controls are the common ones
-([SG1000.md](SG1000.md#4-controls)).
+([SG1000.md](SG1000.md#4-controls)). **F5** is sprite flicker reduction, as on the Master System (below).
 
 ### ColecoVision
 
@@ -178,7 +178,7 @@ arrow keys, the two fire buttons on **D** and **S**, the keypad's digits on the 
 numeric pad's `*` and `/`); on a gamepad, the D-pad moves, A and B are the fire buttons, and Y opens a short on-screen keypad (the D-pad moves on it, A presses a key, B or Y
 closes it; the game keeps running). Player 2 plays on I J K L, U (fire 1) and O (fire 2), with the numeric pad's digits for the keypad. The console has no Pause button. Every key can
 be changed in F2; F6 autofire never pulses a keypad key, F8 and F9 are quick states, and the F2 pages, the speed and the sound controls are the common ones.
-See [COLECOVISION.md](COLECOVISION.md#3-how-it-is-planned-to-work).
+**F5** is sprite flicker reduction, as on the Master System (below). See [COLECOVISION.md](COLECOVISION.md#3-how-it-is-planned-to-work).
 
 ## In a multiplayer match
 
@@ -507,6 +507,13 @@ overlapping character appears in front; ambiguous identities, raster rewrites
 and lasting priority changes retain cartridge ordering. The Game Gear VDP has the same eight-sprite line limit and uses
 the same renderer, so the option works the same way there (new in 1.6.5, off by default; exports of 1.6.4 and before answer
 "Config unavailable" to F5 on the Game Gear until they are rebuilt). Sprites outside the 160 × 144 window are never shown.
+
+On the SG-1000 and the ColecoVision, **F5** is the same option on their TMS9918A video chip, whose limit is **four** sprites a line:
+off by default (the console's picture), saved in `[SG1000.Video]` and `[ColecoVision.Video] reduce_sprite_flicker`. Turned on, the
+sprites past the fourth are also drawn, behind the others; the fifth-sprite and collision flags, and everything the game reads, stay as
+without it, so quick states and multiplayer are unchanged and each player of a match chooses their own. It is a picture switch, not a
+fidelity setting: a game that counts on the limit to hide a sprite can show it (Bump 'N' Jump draws cars over its status line), and
+it does nothing for a game that redraws the screen while it is displayed.
 
 On NES, **F5** draws objects 9 to 64 of a scanline where none of the eight
 original sprite units is opaque, in OAM order and with their own background

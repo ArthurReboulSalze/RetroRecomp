@@ -537,6 +537,20 @@ def prove_window(res: Results, exes: dict[str, Path], saved_state: Path, folder:
               f'PAL game windowed: 150 frames at the pace of its 313 lines ({expected:.2f} Hz), exit 0', str(pal['host']))
     res.check(len(pal['rows']) == 151 and all(int(r[2]) >= 2 and int(r[3]) > 0.3 * 272 * 208 for r in pal['rows'][10:]) and len(set(pal['hashes'][40:58])) == 1
               and pal['hashes'][40] != pal['hashes'][20], 'PAL game windowed: pictures not blank, and the held key shows')
+    # F5, sprite flicker reduction: off unless asked, saved in the preferences, and a picture switch only (this cartridge never puts more
+    # than four sprites on a line, so its pictures do not change; tools/tms9918_sprite_selftest.py checks what the switch draws).
+    def preference(folder: Path) -> str:
+        return ''.join(p.read_bytes().decode('utf-16' if p.read_bytes()[:2] in (b'\xff\xfe', b'\xfe\xff') else 'utf-8', errors='replace')
+                       for p in folder.rglob('*.ini'))
+
+    asked = window(probe, base / 'f5-on', 60, 'F5@20')
+    res.check(asked['code'] == 0 and 'reduce_sprite_flicker=1' in preference(base / 'f5-on'), 'F5 turns sprite flicker reduction on and saves it',
+              preference(base / 'f5-on')[-300:])
+    twice = window(probe, base / 'f5-off', 80, 'F5@20;F5@40')
+    res.check(twice['code'] == 0 and 'reduce_sprite_flicker=0' in preference(base / 'f5-off'), 'a second F5 turns it off again', preference(base / 'f5-off')[-300:])
+    plain_after = window(probe, base / 'f5-none', 60, '')
+    res.check('reduce_sprite_flicker' not in preference(base / 'f5-none'), 'a run that never pressed F5 writes no such preference')
+    res.check(asked['hashes'][30:] == plain_after['hashes'][30:], 'with it on, the pictures of a cartridge with no more than four sprites a line are the same')
     # F8 saves, F9 loads, in play. Sequence: F8 at 40 (the Pause count is 0), Pause at 60 (1), F9 at 90 (back to 0), Pause at 120 (1 again).
     quick = window(probe, base / 'states', 170, 'F8@40;hold:Return@60-66;F9@90;hold:Return@120-126')
     q = quick['hashes']

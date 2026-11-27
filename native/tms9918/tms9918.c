@@ -18,6 +18,11 @@
 
 #include "tms_tiles.inc"
 
+/* The player's choice (F5, off unless asked): the picture also shows the sprites past the fourth of a line. A switch of the host, not
+ * part of the chip's state: nothing the program reads, no quick state and no digest changes with it. */
+static int tms_all_sprites;
+void tms9918_set_all_sprites(int on) { tms_all_sprites = on != 0; }
+
 /* The TMS9918A's table addresses as the shared line functions take them. */
 static void tms_params(const Tms9918 *v, TmsTileParams *t)
 {
@@ -37,6 +42,7 @@ static void tms_params(const Tms9918 *v, TmsTileParams *t)
     t->sprite_patterns = (uint32_t)(v->reg[6] & 7) << 11;
     t->sprite_size = v->reg[1] & 3;
     t->colour0_collides = 1;                 /* colour-0 sprites never show but collide */
+    t->show_all = (uint8_t)tms_all_sprites;
 }
 
 static int tms_mode(const Tms9918 *v)
