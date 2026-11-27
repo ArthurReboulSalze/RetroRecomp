@@ -26,6 +26,9 @@ def main():
     with tempfile.TemporaryDirectory(dir=directory) as temp:
         library = Path(temp) / "library"
         os.environ["SMSRECOMP_LIBRARY_DIR"] = str(library)
+        # The authored program draws nothing: the refusal of a play route whose picture never changes (sega_evidence, 1.6.6)
+        # does not apply to it, as in tools/cpu_selftest.py.
+        os.environ['RETRO_RECOMP_STILL_ROUTE_OK'] = '1'
         data = bytearray([0xC9] * 8192)
         data[:3] = bytes.fromhex("C3 00 01")
         program = bytes.fromhex("F3 31 F0 DF 3E 00 32 00 C0 3E 02 32 01 C0 2A 00 C0 E9")

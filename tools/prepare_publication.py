@@ -155,7 +155,7 @@ tests/test_installers.py docs/INSTALLING.md
 retrorecomp/compiled_games.py retrorecomp/compiled_games_view.py retrorecomp/memory_view.py retrorecomp/game_removal.py tests/test_game_removal.py
 retrorecomp/compatibility.py assets/release-stamps.json tools/release_stamps.py tests/test_compatibility.py
 retrorecomp/game_details.py retrorecomp/game_metadata.py retrorecomp/game_card_view.py retrorecomp/rom_sources.py
-tests/test_game_cards.py tests/test_disk_sets.py
+tests/test_game_cards.py tests/test_disk_sets.py tests/test_auto_detection.py tests/test_x68000_identification.py tests/test_firmware_not_games.py
 docs/COMPILED_GAMES.md docs/UPGRADES.md docs/UPGRADES_HISTORY.md docs/UPGRADES_HISTORY_OLDER.md
 tools/qualification_gauges.py tests/test_qualification_gauges.py
 MEDIAS/RetroRecomp_UI_1.1.5.jpg
@@ -300,7 +300,7 @@ retrorecomp/systems/game_gear.py retrorecomp/systems/game_boy.py retrorecomp/sys
 retrorecomp/gameboy.py retrorecomp/gameboy_runtime.py
 retrorecomp/gameboy_build.py retrorecomp/gameboy_boundary.py tests/test_gameboy_build.py
 native/gb_boundary_checks.c tools/gameboy_boundary_selftest.py
-retrorecomp/gameboy_hardware.py retrorecomp/gameboy_color_hardware.py
+retrorecomp/gameboy_hardware.py retrorecomp/gameboy_color_hardware.py retrorecomp/gbc_knowledge.py tests/test_gbc_knowledge.py
 native/gb_audio_checks.c tools/gameboy_hardware_selftest.py
 retrorecomp/gameboy_coverage.py tests/test_gameboy_coverage.py
 retrorecomp/nes.py retrorecomp/nes_codegen.py retrorecomp/nes_runtime.py retrorecomp/nes_ram.py retrorecomp/nes_state_layout.py retrorecomp/nes_checks.py tests/test_nes_checks.py tools/nes_saves_check.py tools/nes_route_captures.py tools/nes_owner_trial.py tools/nes_cross_os.py tools/nes_state_prg_check.py retrorecomp/systems/nes.py tests/test_nes.py

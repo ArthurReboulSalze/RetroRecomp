@@ -101,12 +101,21 @@
    "standard": {"seconds": [59, 67, 79], "longest": 90, "reports": 18, "versions": "1.7.3..1.7.6"},
    "extended": {"seconds": [156, 162, 167], "longest": 177, "reports": 10, "versions": "1.7.3..1.7.3"}
   },
+  "zxs": {
+   "standard": {"seconds": [60, 71, 86], "longest": 107, "reports": 6, "versions": "1.9.1..1.9.1"}
+  },
   "pcecd": {
    "standard": {"seconds": [726, 749, 777], "longest": 855, "reports": 8, "versions": "1.9.1..1.9.1"},
    "extended": {"seconds": [2057, 2164, 2220], "longest": 2346, "reports": 9, "versions": "1.9.1..1.9.1"}
   },
   "gbc": {
    "standard": {"seconds": [391, 491, 628], "longest": 765, "reports": 3, "versions": "1.9.1..1.9.1"}
+  },
+  "sg1000": {
+   "standard": {"seconds": [29, 30, 31], "longest": 32, "reports": 8, "versions": "1.9.1..1.9.1"}
+  },
+  "coleco": {
+   "standard": {"seconds": [28, 30, 37], "longest": 39, "reports": 8, "versions": "1.9.1..1.9.1"}
   }
  },
  "with_paths": {

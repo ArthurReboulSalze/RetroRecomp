@@ -51,9 +51,10 @@ DECLINED = {
     # The MSX, MSX2 and MSX2+: their routes come from msx_routes (the default mapping's keys and joystick).
     # The PC Engine CD plays the routes of its own converter too (the PC Engine's attract and play routes, pcecd_conversion), no random pad layout.
     # The ZX Spectrum (in development): keyboard and joystick routes of its own come with its conversion, as the MSX's.
-    # The Amstrad CPC (in development): its routes will type the start command into BASIC, then play joystick and keyboard
-    # events in a script of its own, as the MSX's do; it has no pad layout.
-    # The SG-1000 (stage 1: experimental, developer only, nothing converted yet) likewise: its routes come with its conversion.
+    # The Amstrad CPC: its routes type the start command into BASIC, then play keyboard and joystick events in a script of its
+    # own (cpc_routes), as the MSX's do; it has no pad layout.
+    # The SG-1000 and the ColecoVision play the routes of their own converters (sg1000_routes, coleco_routes: a start chosen on
+    # the reference, then a walk seeded by the cartridge; the ColecoVision's ends with a keypad tour), no random pad layout.
     'random_routes': {'x68', 'pce', 'pcecd', 'amiga', 'a1200', 'atarist', 'n64', 'psx', 'msx', 'msx2', 'msx2plus', 'zxs', 'sg1000', 'coleco', 'cpc'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
@@ -79,7 +80,13 @@ DECLINED = {
     # sharing »): the 16 games of their two panels learn no pattern (learned_patterns 0, every learning pass 0 interpreted steps) and reach 0
     # interpreted steps on every route, so a received path would add no native instruction and save no pass (QUALIFICATION.md,
     # "SG-1000 and ColecoVision (22 November 2026"), with G16 `-`.
-    'path_sharing': {'msx', 'msx2', 'n64', 'sg1000', 'coleco'},
+    # The Amstrad CPC (27 November 2026, same rule): on three disks beyond its panel (Carrier Command, Dark Side, Rigel's Revenge) the
+    # patterns a conversion learned, given back to a fresh one, add no native instruction (the same native steps, 0 interpreted either
+    # way) and save one learning pass, about 12 to 15 s of a 60 to 95 s conversion (QUALIFICATION.md, "Amstrad CPC"), with G16 `-`.
+    # The ZX Spectrum: declined on its measure of 27 November 2026, under the same rule. The native code each of the six delivered games
+    # learned at the Standard level replayed the two 18,000-frame long routes a deeper level adds: 0.000 % to 0.089 % of the instructions
+    # ran on the interpreter, which is all a received path could make native (QUALIFICATION.md, "ZX Spectrum, the exit"), with G16 `-`.
+    'path_sharing': {'msx', 'msx2', 'n64', 'sg1000', 'coleco', 'cpc', 'zxs'},
     # A runtime-feedback kind (native/runtime_feedback.h): a machine in development that records nothing yet may wait for it. The
     # lead reserves the new machines' kinds in one change, with the release that first needs one, so that the game stamps of
     # every machine move once, not once per new machine (21 Nov 2026). Empty since 1.10.0: the ZX Spectrum, SG-1000, ColecoVision

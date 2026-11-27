@@ -112,7 +112,7 @@ class ReportShapeTests(unittest.TestCase):
 
     def test_the_delivery_note_keeps_the_five_measures_apart(self):
         note = sg1000_conversion.DELIVERY_NOTE
-        self.assertIn('developer only, experimental', note)
+        self.assertIn('a game executable is delivered:', note)
         self.assertIn('no player has played it', note)
         for measure in ('hardware', 'gameplay', 'latency'):
             self.assertIn(measure, note)
@@ -269,7 +269,7 @@ class EndToEndTests(unittest.TestCase):
             output = Path(folder) / 'out'
             report = json.loads((output / 'conversion-report.json').read_text(encoding='utf-8'))
             self.assertEqual(report['system']['id'], 'sg1000')
-            self.assertEqual(report['status'], 'experimental')
+            self.assertEqual(report['status'], 'supported')
             self.assertEqual(report['sg1000_checks']['standard'], 'pal')
             # The game is delivered: a file in the output folder under the title's name, the report names it and how it was checked.
             self.assertEqual(game, output / executable_name('Authored (Europe)'))

@@ -1,13 +1,10 @@
 # ColecoVision
 
-Profile `coleco`: the ColecoVision, **experimental, developer only, in development**. This is stages 1 to 3 of the machine
-([NEW_MACHINE.md](NEW_MACHINE.md), the converter's side): the converter recognises a ColecoVision cartridge file, reads it, translates it together
-with your own BIOS, checks the translation against the reference interpreter and **delivers a game executable** (the player and the host kit
-around the translated cartridge and BIOS). It is for developers: no player is offered it, no game has been played by a person, and nothing on this
-page says that a game plays well, that the hardware is reproduced faithfully or how long input takes to reach the screen. Those are five
-separate measures (native code, CPU fidelity, hardware fidelity, gameplay validation, physical latency); for this machine only the first, and the
-agreement with the reference interpreter, are measured, per conversion, and only on the routes played; the delivered file is replayed headless,
-not played.
+Profile `coleco`: the ColecoVision, **supported** on the maintainer's acceptance of 27 November 2026 ([QUALIFICATION.md](QUALIFICATION.md)). The
+converter recognises a ColecoVision cartridge file, reads it, translates it together with your own BIOS, checks the translation against the reference
+interpreter and **delivers a game executable** (the player and the host kit around the translated cartridge and BIOS), alone or in multiplayer.
+"Supported" says that the gates of the qualification were met on a panel of cartridges; it does not say that every game plays well, that the hardware
+is reproduced faithfully or how long input takes to reach the screen. Those are five separate measures ([section 5](#5-evidence)).
 
 ## 1. What is converted, and what is not
 
@@ -15,7 +12,7 @@ The scope below is the one the machine is built for.
 
 | In scope | Out of scope (with the reason) |
 | --- | --- |
-| ColecoVision (NTSC) cartridges of 4 KiB to 32 KiB, plain ROM, read from a `.col`, from a `.bin` or `.rom` that you choose as ColecoVision or keep in a folder named `colecovision`, `coleco`, `coleco vision` or `coleco_vision` and that begins with a header word, or from a ZIP holding one | **Super Action Controller, Roller Controller (trackball) and the driving module**: they need a mouse or an analog input. A game that needs one starts with the standard controller, and the report will say so |
+| ColecoVision (NTSC) cartridges of 4 KiB to 32 KiB, plain ROM, read from a `.col`, from a `.bin` or `.rom` that you choose as ColecoVision or keep in a folder named `colecovision`, `coleco`, `coleco vision` or `coleco_vision` and that begins with a header word, or from a ZIP holding one | **Super Action Controller, Roller Controller (trackball) and the driving module**: they need a mouse or an analog input. A game that needs one starts with the standard controller |
 | Two standard controllers: the stick, the two fire buttons and the twelve-key keypad (0-9, `*`, `#`) | **Super Game Module** (24 KiB of RAM and an AY-3-8910): nothing in the library studied needs it; a follow-up on request |
 | Your own BIOS (8 KiB), never shipped | **MegaCart, Activision EEPROM, X-in-1, Super Game Cartridge**: homebrew boards; a file larger than 32 KiB is refused by the reader |
 | | **ADAM** (tape and disk computer): another machine |
@@ -59,14 +56,14 @@ the game file is for its owner only, as the MSX's own-BIOS games are. The work f
    Pause button) and bit 11 is the host's flag « the on-screen keypad is open », which makes the machine ignore the stick and the fire buttons of
    that pad. A port reads the stick and the left fire button in joystick mode, the key's code and the right fire button in keypad mode (the
    console's writes to 80h-9Fh and C0h-DFh choose), every line active low. Nothing else reaches the game, so rollback and a multiplayer session
-   will need nothing more. The twelve keys are ordinary action rows (bindable in F2), and a gamepad player's Y opens the host kit's on-screen
+   need nothing more. The twelve keys are ordinary action rows (bindable in F2), and a gamepad player's Y opens the host kit's on-screen
    keypad (`native/hostkit/adapters/rrhk_keypad.inc`): the D-pad moves, A presses a key, B or Y closes it, and the game keeps running.
 4. **The routes.** A conversion plays an `attract` route (no input), a `play` route and, at the extended and thorough scan levels, long routes
    (`retrorecomp/coleco_routes.py`). The BIOS shows its title screen for about twelve seconds and then most games wait at a game-select screen for
    a fire button or a digit, so the first press comes late; how `play` starts (fire button 1, key 1, or key 1 then fire button 1 in turn, pressed
    one to three times) is chosen on the reference interpreter per cartridge, as the MSX's start is.
 
-### How it converts (developer only)
+### How it converts
 
 `retrorecomp/coleco_conversion.py` runs in `.build/coleco/<sha12>-<BIOS8>`:
 
@@ -83,9 +80,12 @@ the game file is for its owner only, as the MSX's own-BIOS games are. The work f
    fresh process (F8 and F9, damaged and foreign states refused);
 5. the report (`conversion-report.json`, schema 2, marker `coleco_checks`) states what was measured and what was not.
 
-What exists today: the profile, the reader, the BIOS check, the machine's description, the machine's C (`native/coleco_machine`, with the shared
+The parts: the profile, the reader, the BIOS check, the machine's description, the machine's C (`native/coleco_machine`, with the shared
 `native/tms9918` and `native/sn76489`), the conversion loop, the game itself (`coleco_player.c`, its adapter `rrhk_coleco.inc` and its quick states
 `coleco_state_file.inc`), the registries and this page.
+
+**Learning.** Its runtime-feedback kind is 30 (reserved); its games record nothing: the F12 row stays OFF. What a conversion learns comes
+from its own routes, as on the MSX. Path sharing is declined (G16 `-`).
 
 ### Multiplayer
 
@@ -98,7 +98,7 @@ and picture is compared (`tools/coleco_player_selftest.py`, proof (d)).
 
 ## 4. Licences
 
-The converted game will compile in the banked Z80 chain's generator and core, the corrected reference interpreter (`licenses/smsggrecomp.md`,
+The converted game compiles in the banked Z80 chain's generator and core, the corrected reference interpreter (`licenses/smsggrecomp.md`,
 `licenses/z80-recomp-core.md`, `licenses/superzazu-z80.md`), and the shared MIT modules; no GPL component. The BIOS is yours, not ours.
 
 ## 5. Evidence
@@ -126,15 +126,44 @@ What is checked, and what each check covers (the five measures stay apart):
     interrupt included; with a key pressed at the game-select screen the two stay the same until about twenty frames after it, where they part: not
     explained yet (a candidate is how a held key is sampled against the frame interrupt), and not claimed either way.
 
-**Not measured**: hardware fidelity (MAME is an emulator, not a console: where this machine agrees with it, both may differ from a real ColecoVision;
-nothing was measured on one), CPU fidelity beyond the independent vectors (they pass: 51,328 of 51,328 through this machine's own generator build with one wait state per M1 cycle, `tools/banked_vector_selftest.py --machine coleco`, 22 November 2026; an emulator's vectors on a flat test bus, not hardware captures), gameplay validation, physical latency. The
-qualification gates ([QUALIFICATION.md](QUALIFICATION.md)) were read on a panel of eight games on 22 November 2026: `Y` on G2 to G6, G8, G9, G10, G12 and G13, `P` on G1, G11 and G15, `-` on G7 (no cartridge save), `-` on G16 (path sharing declined: nothing to share, 0 interpreted steps and no learned pattern on the 16 games of the two panels), `?` on G14 (the owner's).
+| Measure | What is known | What is not |
+| --- | --- | --- |
+| Native code | Per conversion, on the routes played; on the panel of eight (22 November 2026) 0 interpreted steps on every route, 18,000-frame routes of four games included | The share on other routes and other cartridges |
+| CPU fidelity | Native equals the reference interpreter on the routes played; 51,328 of 51,328 SingleStepTests/z80 vectors through this machine's own generator build with one wait state per M1 cycle (`tools/banked_vector_selftest.py --machine coleco`, 22 November 2026): an emulator's vectors on a flat test bus | Hardware captures of the chip |
+| Hardware fidelity | MAME 0.289 comparisons above, an emulator | Anything measured on a console |
+| Gameplay validation | The maintainer's play test of three delivered games (Donkey Kong, Bump 'N' Jump, Pitfall II), 27 November 2026: a play impression | Every other game, full-game coverage |
+| Physical latency | Nothing: not measured | No latency figure; none is claimed |
+
+### Known limits
+
+- **Sprite flicker and tearing can be the machine's.** The video chip shows four sprites on a line: Bump 'N' Jump puts five to eight on its lines
+  when the car jumps, and redraws the road while the picture is drawn; MAME 0.289 shows the same. **F5** shows the sprites past the fourth (off by
+  default; the picture only, nothing the game reads changes). It does not hide the redraw, and a game that counts on the limit to hide a sprite
+  shows it with F5 on (Bump 'N' Jump's cars then pass over its « JUMP OK » line).
+- **One parting from MAME is not explained:** with a key pressed at the game-select screen, the console-RAM writes stay the same until about twenty
+  frames after it.
+- **The BIOS is yours and is inside the converted game**, which is therefore for you only.
+- **Not covered:** the Super Action Controller, the roller and driving modules, the Super Game Module, MegaCart and other boards, the ADAM.
+- Pushes write the low byte first, where a Z80 writes the high byte first ([CPU_Z80.md](CPU_Z80.md)).
+
+### Where it stands
+
+**Supported** on the maintainer's decision: his play test of 27 November 2026 (G14) and the `coleco` column of [QUALIFICATION.md](QUALIFICATION.md),
+read on a panel of eight games: `Y` on every gate that applies except G11 (hardware proof: `P`, MAME comparisons only, no hardware), `-` on G7 (no
+cartridge save) and on G16 (path sharing declined: nothing to share, 0 interpreted steps and no learned pattern on the 16 games of the two panels).
+Windows and a witness on Debian 13 in WSL (`linux = 'witnessed'`: Bump 'N' Jump, Pitfall II and Ken Uston converted there equal to Windows, field
+for field); a Linux PC with a real display is not covered.
+
+**Release notes (draft for the release page).** *ColecoVision (new, supported): cartridges of 4 to 32 KiB with your own BIOS, translated to native
+code and checked against a reference interpreter in every conversion; two controllers with their keypads (an on-screen keypad on a gamepad), quick
+states, F5 against sprite flicker, multiplayer in rollback. Not covered: the Super Action Controller, the roller and driving modules, the Super Game
+Module, MegaCart and the ADAM. Hardware fidelity was compared with an emulator only, and no latency is claimed.*
 
 ## 6. G14 checklist for the owner's play test (22 November 2026)
 
-Three delivered executables in `Export/Games/ColecoVision` (built from main of 22 November 2026 with the owner's own BIOS, empty scratch library, portable
-toolchain, online covers on); about three minutes each. The owner fills the row of the owner-acceptance table in his own words and date; nothing here
-sets G14 or the status. The console has **no Pause button**: a game that pauses does it with its own keys.
+Done: the maintainer played them on 27 November 2026 and accepted the machine (the owner-acceptance table of
+[QUALIFICATION.md](QUALIFICATION.md)); the list is kept as what was asked. Three delivered executables in `Export/Games/ColecoVision` (built from main of 22 November 2026 with the owner's own BIOS, empty scratch library, portable
+toolchain, online covers on); about three minutes each. The console has **no Pause button**: a game that pauses does it with its own keys.
 
 Controls: arrows move; **D** and **S** are the two fire buttons; the keypad is the digit keys (top row or numeric pad), `*` on **[** and `#` on **]**;
 on a gamepad the D-pad moves, A/B fire, **Y opens the on-screen keypad** (D-pad to move, A to press, B or Y closes it; the game keeps running).
@@ -153,8 +182,8 @@ interrupt on /NMI, on every frame of the attract and of a 3,600-frame pad route)
 steps on its play route (3,540 guarded steps), Bump 'N' Jump 24.9 million, Pitfall II 22.8 million (1,497 guarded steps); audible frames measured on every play route (nobody has listened yet);
 the BIOS is the owner's own, checked by SHA-256 and recorded in the report; the offscreen frames at 1,500 and 3,000 frames show the games in play.
 Against MAME 0.289 as a private oracle: the controllers' ports agree line by line, the Z80 timing groups agree, and the console RAM writes of the BIOS, the
-title and the game-select screen are identical over 1,000 frames. The matrix on the panel of eight (22 November 2026): `Y` on G2 to G6, G8, G9, G10 (51,328 independent Z80 vectors), G12 and G13; `P` on G1, G11 and G15; `-` on G7;
-**G14 stays `?`** (G16 is `-`, sharing declined).
+title and the game-select screen are identical over 1,000 frames. The matrix as read that day (22 November 2026, before the play test): `Y` on G2 to G6, G8, G9, G10 (51,328 independent Z80
+vectors), G12 and G13; `P` on G1, G11 and G15; `-` on G7 and G16; G14 `?`. [Where it stands](#where-it-stands) gives the matrix now.
 
 **Not claimed**: hardware fidelity (MAME is an emulator; nothing was measured on a console; keys `0 9 * #` follow MAME only), the unexplained parting from
 MAME about twenty frames after a key press at the game-select screen, gameplay validation (three games, played by routes, not through), physical

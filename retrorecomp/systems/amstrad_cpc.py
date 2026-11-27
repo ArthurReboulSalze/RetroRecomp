@@ -1,22 +1,23 @@
-"""Amstrad CPC profile (experimental, developer only, from 21 November 2026: see docs/AMSTRAD_CPC.md).
+"""Amstrad CPC profile (from 21 November 2026; supported from 27 November 2026, on the owner's G14: see docs/AMSTRAD_CPC.md).
 
-What it will convert: a CPC 6128 disk game (a DSK or EXTENDED DSK image, or a ZIP holding one), started from BASIC by the
-command its catalogue gives (retrorecomp/cpc_disk.py), with the player's own firmware: the 32 KiB system ROM (the OS and
-Locomotive BASIC) and the 16 KiB AMSDOS ROM, recognised by their public digests and never shipped. The Z80 is to run on the
+What it converts: a CPC 6128 disk game (a DSK or EXTENDED DSK image, or a ZIP holding one), started from BASIC by the
+command its catalogue gives (retrorecomp/cpc_disk.py), on the CPC 6128's firmware: the 32 KiB system ROM (the OS and
+Locomotive BASIC) and the 16 KiB AMSDOS ROM, the player's own (recognised by their public digests) or fetched from a pinned
+source, never in the repository or the installer. The Z80 runs on the
 shared banked Z80 chain of the Master System and the MSX, its time rounded to the Gate Array's microsecond; the Gate Array,
 the CRTC 6845, the PPI 8255 with the keyboard and the uPD765 floppy controller are our own C (native/cpc_machine,
 native/upd765), the AY-3-8912 the shared module of the MSX and the ZX Spectrum.
 
-Today the profile identifies a CPC disk (its signature, before the MSX2+ which takes every other .dsk), and a developer's
-conversion (retrorecomp/cpc_conversion.py) runs the boot route on the chain; the machine is offered nowhere (developer only,
-`available` false) until a real game has gone through it on the player's own firmware.
+The profile identifies a CPC disk (its signature, before the MSX2+ which takes every other .dsk), and its conversion
+(retrorecomp/cpc_conversion.py) runs the boot and play routes on the chain, in every installation. When the player gives no
+firmware, the converter fetches the pinned files (retrorecomp/cpc_roms.py).
 Not planned for this profile: tapes (.cdt), snapshots (.sna), the Plus range and the GX4000 (their ASIC, .cpr cartridges).
 """
 from __future__ import annotations
 
 from pathlib import Path
 
-from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile, UnsupportedConsoleError
+from . import Capabilities, ConsoleMismatchError, Cpu, OptionKey, SimulationSource, SystemProfile
 from ..cpc_timing import z80_costs
 from ..z80_chain import Z80Machine, Z80RegionMap
 from .specs import Catalogues, Identify, LibraryLayout, PathSpec, ReportShape
@@ -46,10 +47,10 @@ class AmstradCpcProfile(SystemProfile):
     extensions = ('.dsk',)
     export_folder = 'Amstrad CPC'
     video_modes = ('pal',)
-    status = 'experimental'
-    linux = 'pending'
-    scope_note = ('Amstrad CPC 6128 disk games (DSK and extended DSK images) with your own system ROM and AMSDOS ROM; '
-                  'not converted yet: the machine is in development')
+    status = 'supported'
+    linux = 'witnessed'
+    scope_note = ('Amstrad CPC 6128 disk games (DSK and extended DSK images, or a ZIP holding one), on the 6128\'s firmware '
+                  'fetched once from a pinned source or on your own system ROM and AMSDOS ROM')
     cpus = (Cpu('z80', 'main', 'cycles'),)
     media_kinds = ('disk',)
     # The player's own firmware, both needed (no free replacement exists): the 6128's system ROM and AMSDOS. Not part of the
@@ -62,10 +63,8 @@ class AmstradCpcProfile(SystemProfile):
     # RR_FB_CPC in native/runtime_feedback.h, reserved with the other new machines' in one change (1.10.0). Nothing is recorded
     # under it yet: the game never starts the recorder, as on the MSX.
     feedback_kinds = frozenset({31})
-    developer_only = True
     # Multiplayer (docs/HOST_KIT.md 2.5, the multiplayer checklist of 21 Nov 2026): rollback on the game's own snapshots, two seats
     # (joystick 1 on keyboard row 9, joystick 2 on row 6), the host typing for everyone, the host's disk A as the match's save.
-    # Offered nowhere while the profile is developer only.
     netplay_session = True
     netplay_seats = 2
     netplay_rollback = True
@@ -107,10 +106,6 @@ class AmstradCpcProfile(SystemProfile):
     # asked before the MSX2+, which takes every other .dsk (raw MSX images have no signature).
     identify = Identify(path_order=6)
 
-    def available(self) -> bool:
-        from ..cpc_conversion import developer_available
-        return developer_available()
-
     def identify_path(self, path: Path, suffix: str, selected_system: str | None):
         if suffix not in ('.dsk', '.zip'):
             return None
@@ -121,8 +116,6 @@ class AmstradCpcProfile(SystemProfile):
             if suffix == '.zip':
                 return None             # a ZIP chosen for another machine is left to it
             raise ConsoleMismatchError('Detected an Amstrad CPC disk; choose Automatic or Amstrad CPC.', self.id)
-        if not self.available():
-            raise UnsupportedConsoleError(f'{path.name}: an Amstrad CPC disk; the Amstrad CPC is in development and not converted yet.')
         return self
 
     def read_rom(self, path: Path):
@@ -143,7 +136,7 @@ class AmstradCpcProfile(SystemProfile):
         return 'pal'
 
     def convert(self, path: Path, **options) -> Path:
-        """A developer's conversion (the profile is not offered to players: `available` is false)."""
+        """The conversion (retrorecomp/cpc_conversion.py)."""
         from ..cpc_conversion import convert
         return convert(path, **options)
 

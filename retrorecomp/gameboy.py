@@ -25,7 +25,7 @@ from .gameboy_coverage import (ProbeScenario, TRACE_LIMIT, branch_entries, cpu_v
                                probe_scenarios, read_entries, write_entries, entries_text)
 from .library import atomic_json, atomic_text, entry_lock, file_sha256, library_root
 from .report_schema import write_report
-from .knowledge import bundled_record, record_for
+from .knowledge import bundled_record, record_for, schema3_module
 from .metadata import write_game_metadata
 from .paths import ROOT, ASSETS, data_directory, games_root, boxart_cache_directory
 from .systems import archive_rom
@@ -297,6 +297,13 @@ def _gameplay_entries(rom: GameBoyRom) -> set[tuple[int, int]]:
     return entries
 
 
+def _bank_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, int]]:
+    """The shared entries of a machine whose records are schema 3 documents (the Game Boy Color, `gbc_knowledge`); none for the
+    original Game Boy, whose banks are read as schema 1 records."""
+    module = schema3_module(getattr(rom, 'system_id', 'gb'))
+    return module.shared_entries(rom.sha256, len(rom.data), imported=imported) if module else set()
+
+
 def _known_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, int]]:
     """Entries a conversion starts from. Without `imported`, only this player's
     library and gameplay rows and the qualified bank: hints from other
@@ -316,7 +323,7 @@ def _known_entries(rom: GameBoyRom, *, imported: bool = True) -> set[tuple[int, 
                     row.data and rom.data[offset:offset+span] == row.data[:span]):
                 own.add((bank, pc))
         shared = bundled_record(system, rom, ENGINE_REV).get('rom_entries', [])
-    return own | read_entries(_verified_trace(rom), len(rom.data)) | {
+    return own | _bank_entries(rom, imported=imported) | read_entries(_verified_trace(rom), len(rom.data)) | {
         (bank, address) for bank, address in shared
         if bank < len(rom.data) // 0x4000 and address < 0x8000}
 
@@ -415,6 +422,8 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     stage_started = time.perf_counter()
     trace_input = _verified_trace(rom)
     observed_entries = _known_entries(rom)
+    # What only the shared banks gave: counted in the report, apart from this PC's own paths.
+    received_entries = len(observed_entries - _known_entries(rom, imported=False))
     static_entries = branch_entries(rom.data)
     imported_entries = len(observed_entries)
     if imported_entries:
@@ -554,6 +563,13 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
     remembered = project / 'remembered.trace'
     write_entries(remembered, _known_entries(rom, imported=False) | reached)
     _remember_trace(rom, remembered)
+    # A machine that shares schema 3 records keeps its own record of what the library now holds, and the report names it.
+    shared_module = schema3_module(rom.system_id)
+    knowledge = None
+    if shared_module:
+        record, truncated = shared_module.remember(rom.sha256, len(rom.data),
+                                                   read_entries(_verified_trace(rom), len(rom.data)))
+        knowledge = shared_module.knowledge_block(record, truncated, received_entries)
     generated = json.loads((project / "game_metadata.json").read_text(encoding="utf-8"))
     report = {"tool": "Retro-Recomp", "version": __version__, "system": {"id": variant.system_id, "name": variant.name},
         "scan_level": level, "long_routes": [route.metadata() for route in long_routes],
@@ -588,6 +604,7 @@ def convert_game_boy(rom_path: Path, *, title: str | None = None, output: Path |
         "artwork": artwork, "windows_metadata": metadata,
         "game_tags": [], "peripheral": {"type": "joypad", "hardware_accuracy_validated": False},
         "runtime_learning": True, "runtime_feedback": gameplay_feedback, "library_identity": rom.sha256,
+        **({"knowledge": knowledge} if knowledge else {}),
         "host_timing": {"audio_backlog_target_ms_default": 20, "audio_callback_frames_requested": 256,
             "audio_startup": "one_device_period_plus_10ms", "audio_native_format": True,
             "apu_sample_rate": 44100,

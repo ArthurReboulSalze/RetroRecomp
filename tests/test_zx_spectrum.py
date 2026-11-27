@@ -10,7 +10,7 @@ from pathlib import Path
 
 from retrorecomp import zxs_roms, zxs_snapshot
 from retrorecomp.report_schema import read_report
-from retrorecomp.systems import (ALL_PROFILES, ConsoleMismatchError, UnsupportedConsoleError, get_profile,
+from retrorecomp.systems import (ALL_PROFILES, ConsoleMismatchError, get_profile,
                                  profile_for_path)
 from retrorecomp.zxs_conversion import write_skeleton_report
 
@@ -212,54 +212,41 @@ class ProfileTests(unittest.TestCase):
     def setUp(self):
         self.folder = Path(tempfile.mkdtemp())
 
-    def test_the_profile_is_experimental_developer_only_and_unlisted(self):
+    def test_the_profile_is_supported_and_listed(self):
+        # Supported on the owner's play test of 27 November 2026 (G14): every installation lists it, with its Linux witness.
         profile = get_profile('zxs')
         self.assertEqual((profile.name, profile.status, profile.linux, profile.developer_only),
-                         ('ZX Spectrum', 'experimental', 'witnessed', True))
-        # It converts through the real player path (batch, the window) on a developer tree, as the SG-1000 and the
-        # ColecoVision do, and no installation lists it for players (developer_only).
+                         ('ZX Spectrum', 'supported', 'witnessed', False))
         self.assertTrue(profile.available())
         from retrorecomp.systems import PROFILES, convertible_profiles
-        self.assertNotIn(profile, PROFILES)
+        self.assertIn(profile, PROFILES)
         self.assertIn(profile, convertible_profiles())
         self.assertIn(profile, ALL_PROFILES)
 
-    def test_a_snapshot_says_the_machine_is_unavailable_when_it_is_and_steals_nothing(self):
+    def test_a_snapshot_in_a_file_or_a_zip_is_the_spectrums_and_it_steals_nothing(self):
         profile = get_profile('zxs')
-        original = type(profile).available
-        type(profile).available = lambda self: False         # an installation without the machine
-        try:
-            for name, data in (('a.z80', z80_v1(BANKS)), ('b.sna', sna48(BANKS))):
-                path = self.folder / name
-                path.write_bytes(data)
-                with self.assertRaisesRegex(UnsupportedConsoleError, 'ZX Spectrum'):
-                    profile_for_path(path)
-            bundle = self.folder / 'zx.zip'
-            with zipfile.ZipFile(bundle, 'w') as archive:
-                archive.writestr('game.z80', z80_v1(BANKS))
-            with self.assertRaisesRegex(UnsupportedConsoleError, 'ZX Spectrum'):
-                profile_for_path(bundle)
-        finally:
-            type(profile).available = original
-        # A ZIP of another machine is left to it: an MSX cartridge is not looked at by the Spectrum.
+        for name, data in (('a.z80', z80_v1(BANKS)), ('b.sna', sna48(BANKS))):
+            path = self.folder / name
+            path.write_bytes(data)
+            self.assertIs(profile_for_path(path), profile)
+        bundle = self.folder / 'zx.zip'
+        with zipfile.ZipFile(bundle, 'w') as archive:
+            archive.writestr('game.z80', z80_v1(BANKS))
+        self.assertIs(profile_for_path(bundle), profile)
+        # A ZIP of another machine is left to it: a Master System cartridge is not looked at by the Spectrum.
         other = self.folder / 'other.zip'
         with zipfile.ZipFile(other, 'w') as archive:
             archive.writestr('game.sms', b'\x00' * 0x8000)
         self.assertEqual(profile_for_path(other).id, 'sms')
 
-    def test_when_available_a_snapshot_is_the_spectrums_and_a_mismatch_is_said(self):
+    def test_a_snapshot_chosen_as_another_machine_is_a_mismatch_that_is_said(self):
         profile = get_profile('zxs')
         path = self.folder / 'a.z80'
         path.write_bytes(z80_v1(BANKS))
-        original = type(profile).available
-        type(profile).available = lambda self: True
-        try:
-            self.assertIs(profile_for_path(path), profile)
-            with self.assertRaises(ConsoleMismatchError):
-                profile_for_path(path, 'msx')
-            self.assertEqual(profile.read_rom(path).model, '48k')
-        finally:
-            type(profile).available = original
+        self.assertIs(profile_for_path(path), profile)
+        with self.assertRaises(ConsoleMismatchError):
+            profile_for_path(path, 'msx')
+        self.assertEqual(profile.read_rom(path).model, '48k')
 
     def test_the_skeleton_report_is_read_back_with_the_measures_unclaimed(self):
         path = self.folder / 'a.z80'
@@ -268,7 +255,7 @@ class ProfileTests(unittest.TestCase):
         target = self.folder / 'conversion-report.json'
         write_skeleton_report(target, snap, [('play', 600, 1000, 10)])
         stored = json.loads(target.read_text(encoding='utf-8'))
-        self.assertEqual((stored['system']['id'], stored['status'], stored['latency_ms']), ('zxs', 'experimental', None))
+        self.assertEqual((stored['system']['id'], stored['status'], stored['latency_ms']), ('zxs', 'supported', None))
         self.assertFalse(stored['hardware_accuracy_validated'])
         self.assertIn('floating bus follows the documented fetch timing', stored['hardware_limits'][0])
         self.assertTrue(get_profile('zxs').z80_machine.contention)      # the ULA's contention (docs/ZX_SPECTRUM.md, section 5)

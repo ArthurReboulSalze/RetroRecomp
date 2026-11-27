@@ -93,10 +93,73 @@ class ProfileTests(unittest.TestCase):
     def test_two_slaves_are_refused_not_guessed(self):
         path = self.write(install('Game/One.Slave', 'Game/Two.Slave'))
         self.assertIsNone(amiga.slave_member(path))
+        self.assertEqual(amiga.slave_members(path), ['Game/One.Slave', 'Game/Two.Slave'])
         with self.assertRaises(UnsupportedConsoleError):
             profile_for_path(path)
         with self.assertRaises(ConversionError):
             amiga.read_input(path)
+
+    def test_the_game_slave_beside_its_intro_editor_or_helper_is_chosen_as_the_conversion_chooses(self):
+        # The detection used to refuse every archive with two slaves while the install itself chose the game's: 25 archives of
+        # a player's library (an Intro, an editor, a save-disk maker beside the game) were refused before the conversion ran.
+        for helper in ('Game/Intro.Slave', 'Game/GameEditor.Slave', 'Game/getsavedisk.slave'):
+            with self.subTest(helper):
+                path = self.write(install(helper, 'Game/Game.Slave'))
+                self.assertEqual(amiga.slave_member(path), 'Game/Game.Slave')
+                self.assertIs(profile_for_path(path), get_profile('amiga'))
+                self.assertEqual(amiga.read_input(path).slave_path, 'Game/Game.Slave')
+
+    def test_the_same_slave_also_kept_in_the_data_folder_takes_the_one_in_the_install_folder(self):
+        path = self.write(install('Game/data/Game.slave', 'Game/Game.Slave'))
+        self.assertEqual(amiga.slave_member(path), 'Game/Game.Slave')
+        self.assertIs(profile_for_path(path), get_profile('amiga'))
+        self.assertEqual(amiga.read_input(path).slave_path, 'Game/Game.Slave')
+
+    def test_two_slaves_named_as_the_folder_and_not_one_file_at_its_top_are_refused_not_guessed(self):
+        for names in (('Game/a/Game.slave', 'Game/b/Game.slave'), ('Game/Game.Slave', 'Game/NTSC/Game.Slave')):
+            with self.subTest(names):
+                blob = (level1(names[0], hunk_file(slave_code())) + level1(names[1], hunk_file(slave_code(kick=None, version=16)))
+                        + level1('Game/data/Disk.1', b'\x01' * 64) + b'\x00')
+                path = self.write(blob)
+                self.assertIsNone(amiga.slave_member(path))
+                with self.assertRaisesRegex(UnsupportedConsoleError, 'holds several WHDLoad slaves'):
+                    profile_for_path(path)
+                with self.assertRaises(ConversionError):
+                    amiga.read_input(path)
+
+    def test_a_collection_of_games_is_refused_not_guessed(self):
+        # A game and its data disk, or a series in one archive: no slave is named as the install's folder.
+        path = self.write(install('Pack/Populous.Slave', 'Pack/Challenge.Slave'))
+        self.assertIsNone(amiga.slave_member(path))
+        with self.assertRaisesRegex(UnsupportedConsoleError, 'holds several WHDLoad slaves'):
+            profile_for_path(path)
+        with self.assertRaises(ConversionError):
+            amiga.read_input(path)
+
+    def test_the_refusal_says_several_slaves_and_is_translated(self):
+        # Archives that hold several games were refused with "holds no WHDLoad slave".
+        from retrorecomp.i18n import STRINGS, log_text
+        self.assertEqual(amiga.SEVERAL_SLAVES, STRINGS['amiga_several_slaves'][0])
+        path = self.write(install('Game/One.Slave', 'Game/Two.Slave'))
+        with self.assertRaises(UnsupportedConsoleError) as caught:
+            profile_for_path(path)
+        message = str(caught.exception)
+        self.assertIn('holds several WHDLoad slaves (One.Slave, Two.Slave): one install per archive is expected.', message)
+        self.assertNotIn('no WHDLoad slave', message)
+        for language in ('en', 'fr', 'de', 'es', 'it', 'ja', 'ru', 'zh'):
+            with self.subTest(language):
+                shown = log_text(message, language)
+                self.assertTrue(shown.startswith(path.name), shown)
+                self.assertIn('One.Slave, Two.Slave', shown)
+                self.assertNotIn('{log}', shown)
+                if language != 'en':
+                    self.assertNotIn('holds several', shown)
+
+    def test_a_long_list_of_slaves_is_shortened(self):
+        path = self.write(install(*(f'Game/S{n}.Slave' for n in range(5))))
+        with self.assertRaises(UnsupportedConsoleError) as caught:
+            profile_for_path(path)
+        self.assertIn('(S0.Slave, S1.Slave, S2.Slave, …)', str(caught.exception))
 
     def test_a_file_that_is_not_an_archive_is_refused(self):
         path = self.write(b'not an LHA archive at all')

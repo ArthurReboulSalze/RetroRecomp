@@ -1,4 +1,4 @@
-"""ColecoVision conversion (experimental, developer only): a cartridge and the player's BIOS translated by the banked Z80 chain, checked against the
+"""ColecoVision conversion: a cartridge and the player's BIOS translated by the banked Z80 chain, checked against the
 reference interpreter, built into a game. MIT, Retro-Recomp.
 
 The steps: read the cartridge (coleco_rom.py, plain ROM of 4 to 32 KiB) and the BIOS (coleco_bios.py, the player's own 8 KiB image); choose how the `play` route starts on the reference
@@ -27,7 +27,7 @@ LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_
 WATCH = (0x6000, 0x6001)         # the first RAM bytes: what a program keeps there is compared too
 PAL_TAGS = re.compile(r'\((?:[^)]*[ ,])?(?:Europe|Australia|PAL)\b[^)]*\)', re.I)
 NTSC_TAGS = re.compile(r'\((?:[^)]*[ ,])?(?:USA|Canada|Japan|Brazil|Korea|Taiwan|Asia)\b[^)]*\)', re.I)
-DELIVERY_NOTE = ('a game executable is delivered (developer only, experimental, for its owner only: it holds the BIOS you gave): the translated '
+DELIVERY_NOTE = ('a game executable is delivered (for its owner only: it holds the BIOS you gave): the translated '
                  'cartridge and BIOS with the ColecoVision player and the host kit; the file delivered was replayed headless on every route and equals the reference interpreter and the native '
                  'check on every compared field and every frame row; no player has played it, and nothing is claimed about the hardware, '
                  'the gameplay or the latency')

@@ -14,6 +14,13 @@
       {"title": "Phantasy Star Gaiden", "category": "cartridge-save", "reason": "RPG (translated dump); long game states and a probable cartridge save, which the Sega profiles do not validate", "source": "docs/COMPATIBILITY.md"},
       {"title": "Streets of Rage II", "category": "qualified-brawler", "reason": "One of the twelve cartridges of the 18 October qualification", "source": "docs/GAME_GEAR.md"}
     ],
+    "gbc": [
+      {"title": "Tetris DX", "category": "smallest", "reason": "The smallest Color-only cartridge of the panel, with the link cable mode used for two players", "source": "docs/GAME_BOY_COLOR.md"},
+      {"title": "Pokemon - Gold Version", "category": "mbc3-clock", "reason": "MBC3 with its clock and a 32 KiB save; trade and battle over the cable", "source": "docs/GAME_BOY_COLOR.md"},
+      {"title": "Wario Land 3", "category": "ram-code", "reason": "The most code run one instruction at a time from writable memory, counted apart from native code", "source": "docs/GAME_BOY_COLOR.md"},
+      {"title": "Shantae", "category": "double-speed", "reason": "256 banks, heavy palette and DMA use; its double speed found the sound unit ordering fix", "source": "docs/GAME_BOY_COLOR.md"},
+      {"title": "Lufia - The Legend Returns", "category": "big-script", "reason": "A long RPG with a 32 KiB save, compared with the reference over every frame at the extended level", "source": "docs/GAME_BOY_COLOR.md"}
+    ],
     "gb": [
       {"title": "Tetris", "category": "no-banking", "reason": "No bank switching; the smallest control case", "source": "docs/COMPATIBILITY.md"},
       {"title": "Pokemon - Red Version", "category": "mbc3-battery", "reason": "MBC3 with battery RAM; Pokemon Yellow, from the same family, exposed a stack overflow and a long cold build in earlier campaigns", "source": "docs/GAME_BOY.md"},
@@ -195,6 +202,32 @@
       {"title": "R4 - Ridge Racer Type 4", "category": "region", "reason": "NTSC-J disc from a CUE sheet with CD-audio tracks: needs the player's Japanese BIOS, the region the converter must match", "source": "docs/QUALIFICATION.md"},
       {"title": "WIPEOUT2", "category": "pal-cd-audio", "reason": "WipEout 2097, PAL at 50 Hz from a CUE sheet whose music is CD audio: the frame rate and the drive's audio path", "source": "docs/QUALIFICATION.md"},
       {"title": "Gran Turismo 2", "category": "memory-card", "reason": "Simulation Mode disc (the Arcade disc is apart): saves its licences and garage to the first memory card early, the case for saves read back in a fresh process", "source": "docs/PLAYSTATION.md"}
+    ],
+    "cpc": [
+      {"title": "Carrier Command", "category": "learned-windows", "reason": "Rewrites its code in RAM: 7,391 learned windows, the case that showed the Z80 chain's silent bound of 4,096 (lifted on 27 November 2026); its first pass interprets about 4 million steps", "source": "docs/AMSTRAD_CPC.md"},
+      {"title": "Sport of Kings", "category": "disk-save", "reason": "Saves a meeting through its own SAVE option (cassette calls AMSDOS sends to drive A): the written copy beside the game, read back in a fresh process (G7)", "source": "docs/AMSTRAD_CPC.md"},
+      {"title": "Gryzor", "category": "joystick-fire", "reason": "Reads only the stick's default fire line (pin 6, bit 4): the pad's main button and the routes' fire were on the second line until 27 November 2026; the panel's largest first learning pass (13.6 million steps)", "source": "docs/AMSTRAD_CPC.md"},
+      {"title": "Head over Heels", "category": "route-depth", "reason": "A trainer asks three « (o/n)? » questions in French; the routes then stay on its main menu and never start a game, even on the 18,000-frame route", "source": "docs/AMSTRAD_CPC.md"},
+      {"title": "Robocop", "category": "start-command", "reason": "Started by RUN\"M, the one name every other program's name starts with: the catalogue rule of the start command, not a DISC program", "source": "docs/AMSTRAD_CPC.md"}
+    ],
+    "zxs": [
+      {"title": "Arkanoid", "category": "floating-bus", "reason": "Syncs its frame on the floating bus (port 28FFh): froze without it, ran twice a frame when the bus was sampled one T-state early (fixed 27 November 2026); the paddle is faster towards the ball by the game's own rule", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Elite", "category": "route-stop", "reason": "Its snapshot halts with interrupts disabled inside its own decryption about 50 frames in, in MAME 0.289 too: the title never animates and the report must say so (route_stop), not call it playing", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Match Day II", "category": "reviewed-start", "reason": "Polls the Fuller port every frame (an idle Fuller box is given by reviewed data), and its start picks « Kempston joystick » in a menu that waits for ever unless a Kempston answers at port 1Fh", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Robocop", "category": "128k-banks", "reason": "128K: the whole game lives in the paged banks, with sampled speech on the AY; starts through reviewed start data (a control menu, then a typed screen)", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Jetpac", "category": "start-phase", "reason": "16K, a .z80 version 1 with no frame position: starts at the interrupt's end, so its random choices part from MAME 0.289's after frame 368 (a known limit, not adopted)", "source": "docs/ZX_SPECTRUM.md"}
+    ],
+    "sg1000": [
+      {"title": "Flicky", "category": "mid-frame-writes", "reason": "Rewrites its colour and pattern tables while the picture is being drawn and puts more than four sprites on a line: the frames that break are the same in MAME (27 November 2026)", "source": "docs/SG1000.md"},
+      {"title": "Congo Bongo", "category": "region", "reason": "Converted as PAL from the (Europe) tag of its name: the 50 Hz path of the panel", "source": "docs/SG1000.md"},
+      {"title": "Champion Baseball", "category": "large-cartridge", "reason": "40 KiB cartridge, past the 32 KiB window most of the library stays within", "source": "docs/SG1000.md"},
+      {"title": "Hang-On II", "category": "route-depth", "reason": "One of the panel's 18,000-frame routes: alive to its end with no interpreted step", "source": "docs/SG1000.md"}
+    ],
+    "coleco": [
+      {"title": "Ken Uston's Blackjack-Poker", "category": "keypad", "reason": "Played on the keypad: its play route showed 7 pictures until the walk ended with a keypad tour (56)", "source": "docs/COLECOVISION.md"},
+      {"title": "Bump 'N' Jump", "category": "sprite-limit", "reason": "Starts from the keypad; redraws the playfield during display and puts five to eight sprites on a line when it jumps, as in MAME (27 November 2026)", "source": "docs/COLECOVISION.md"},
+      {"title": "2010 - The Graphic Action Game", "category": "guarded-code", "reason": "A 32 KiB cartridge with the most steps run through byte guards on the panel", "source": "docs/COLECOVISION.md"},
+      {"title": "Donkey Kong", "category": "regression-baseline", "reason": "The first ColecoVision cartridge converted and the first delivered: the game-select screen of the BIOS, then play, with sound after about fifteen seconds", "source": "docs/COLECOVISION.md"}
     ]
   }
 }

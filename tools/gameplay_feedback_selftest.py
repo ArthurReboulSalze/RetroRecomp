@@ -21,6 +21,9 @@ from retrorecomp import feedback
 
 def sega(work,system):
     from retrorecomp.core import convert
+    # The authored program leaves its result in RAM and draws nothing: the refusal of a play route whose picture never
+    # changes (sega_evidence, 1.6.6) does not apply to it, as in tools/cpu_selftest.py.
+    os.environ['RETRO_RECOMP_STILL_ROUTE_OK']='1'
     data=bytearray([0xc9]*8192);data[:3]=bytes.fromhex('c3 00 01')
     program=bytes.fromhex('f3 31 f0 df 3e 00 32 00 c0 3e 02 32 01 c0 2a 00 c0 e9')
     data[0x100:0x100+len(program)]=program
@@ -57,7 +60,9 @@ def snes(work):
     path=work/'authored.sfc';data=ram_cartridge();data[0x7fc0:0x7fc0+21]=b'RR FEEDBACK FIXTURE'.ljust(21,b' ');path.write_bytes(data)
     rom=read_snes_rom(path);first=prepare16(path,'snes',emit=lambda _:None)
     before=probe16(first,work,20,scenario='before')
-    assert before['interpreted_opcodes']==6
+    # Since 1.6.7 RAM code no scan has seen runs through the compiled body of its live opcode, counted apart: the six go there,
+    # not to the interpreter, and F12 records them all the same.
+    assert before['interpreted_opcodes']==0 and before['compiled_unobserved_opcodes']==6,before
     env=os.environ.copy();env['RETRO_RECOMP_FEEDBACK']='1'
     subprocess.run([first,'--frames','20'],env=env,check=True,capture_output=True,timeout=30)
     file=first.parent/'datas/fallbacks'/f'snes-{rom.sha256}.rrfb'
@@ -67,8 +72,9 @@ def snes(work):
     second=prepare16(path,'snes',emit=lambda _:None)
     native=probe16(second,work,20,scenario='after')
     reference=probe16(second,work,20,reference=True,scenario='after')
-    assert native['interpreted_opcodes']==0 and not reference_differences('snes',native,reference)
-    return {'system':'snes','sites':len(rows),'bytes':file.stat().st_size,'first_fallback':6,
+    assert native['interpreted_opcodes']==0 and native['compiled_unobserved_opcodes']==0,native
+    assert not reference_differences('snes',native,reference)
+    return {'system':'snes','sites':len(rows),'bytes':file.stat().st_size,'first_fallback':0,'first_compiled_unobserved':6,
             'second_fallback':0,'fresh_bank':True,'reference_match':True}
 
 
@@ -108,7 +114,10 @@ def nes(work):
     # authored test invocation a distinct ROM identity, rather than mistaking
     # an earlier fixture's guarded build cache for first-generation discovery.
     tag=work.parent.name.encode('ascii');data[16+0x5000:16+0x5000+len(tag)]=tag
-    code=bytes.fromhex('78 d8 a2 ff 9a a9 e6 8d 00 03 a9 10 8d 01 03 a9 60 8d 02 03 a9 00 85 10 20 00 03 4c 1b 80')
+    # The routine in RAM is INC $10 : RTS. Its count goes to PPUMASK after every call, so the backdrop changes: the
+    # conversion refuses a play route whose picture never changes (1.6.6).
+    code=bytes.fromhex('78 d8 a2 ff 9a a9 e6 8d 00 03 a9 10 8d 01 03 a9 60 8d 02 03 a9 00 85 10 '
+                       '20 00 03 a5 10 8d 01 20 4c 18 80')
     data[16:16+len(code)]=code
     path=work/'authored.nes';path.write_bytes(data);rom=read_nes_rom(path)
     emit=lambda _:None

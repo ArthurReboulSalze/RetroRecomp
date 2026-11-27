@@ -337,17 +337,34 @@ def _named_after_its_folder(slaves: list) -> list:
     return [m for m in slaves if plain(posixpath.splitext(posixpath.basename(m.name))[0]) == plain(m.name.split('/')[0])]
 
 
+def slave_choice(slaves: list, choose: str | None = None) -> list:
+    """The candidates for an install's slave among its archive's slaves; exactly one means it is chosen. `choose` names it;
+    without it a lone slave is the game, else the one named as the install's folder (`_named_after_its_folder`). When that
+    name is found more than once and every copy is the same file (same size and stored CRC), the copy directly in the
+    install's folder wins: some installs also keep their slave in their data folder ("WesternGames/WesternGames.Slave",
+    its icon beside it, and the same "WesternGames/data/WesternGames.slave"). Different files of that name, a collection
+    of several games (none named so): refused, never guessed. The converter's detection (`amiga.slave_member`) and the
+    install (`install`) both choose here, from the archive's headers only."""
+    if choose is not None:
+        return [m for m in slaves if m.name == choose]
+    if len(slaves) == 1:
+        return list(slaves)
+    named = _named_after_its_folder(slaves)
+    top = [m for m in named if m.name.count('/') == 1]
+    if len(named) > 1 and len(top) == 1 and len({(m.size, m.crc) for m in named}) == 1:
+        return top
+    return named
+
+
 def install(blob: bytes, choose: str | None = None) -> Install:
     """Describe a WHDLoad install archive. With several slaves, `choose` names the one to use; without it the one named as the
-    install's folder is the game, and an archive where no single slave is (a collection) is refused, never guessed."""
+    install's folder is the game (`slave_choice`), and an archive where no single slave is (a collection) is refused, never
+    guessed."""
     listed = amiga_lha.members(blob)
     slaves = [m for m in listed if m.name.lower().endswith('.slave')]
     if not slaves:
         raise InstallError('no WHDLoad slave in this archive')
-    if choose is not None:
-        chosen = [m for m in slaves if m.name == choose]
-    else:
-        chosen = slaves if len(slaves) == 1 else _named_after_its_folder(slaves)
+    chosen = slave_choice(slaves, choose)
     if len(chosen) != 1:
         raise InstallError('choose one slave: ' + ', '.join(m.name for m in slaves))
     member = chosen[0]

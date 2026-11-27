@@ -21,6 +21,7 @@ from . import __version__
 from .core import ConversionError
 from .platforms import target_id
 from .report_schema import write_report
+from .systems import get_profile
 from .zxs_snapshot import read_snapshot
 
 
@@ -33,7 +34,7 @@ def skeleton_report(source, scenarios, level='standard') -> dict:
                'interpreter_percent': 100 * interpreted / max(1, native + interpreted), 'reference_match': None}
               for name, frames, native, interpreted in scenarios]
     return {'tool': 'Retro-Recomp', 'version': __version__, 'created_utc': datetime.now(timezone.utc).isoformat(),
-            'system': {'id': 'zxs', 'name': 'ZX Spectrum', 'model': source.model}, 'status': 'experimental',
+            'system': {'id': 'zxs', 'name': 'ZX Spectrum', 'model': source.model}, 'status': get_profile('zxs').status,
             'target': target_id(), 'rom': source.metadata(), 'scan_level': level,
             'native_validation': {'passed': None, 'scope': 'step 1 skeleton: nothing was compared',
                                   'cpu_fidelity_validated': False, 'independent_cpu_oracle': False},
@@ -46,13 +47,6 @@ def skeleton_report(source, scenarios, level='standard') -> dict:
 
 def write_skeleton_report(path, source, scenarios, level='standard') -> dict:
     return write_report(path, skeleton_report(source, scenarios, level))
-
-
-def developer_available() -> bool:
-    """True: the ZX Spectrum converts wherever the converter's files are, through `convert` and the real player path (batch, the
-    window), as the SG-1000 and the ColecoVision do. It stays `developer_only` (systems/zx_spectrum.py): no installation lists it
-    for players until the owner says so."""
-    return True
 
 
 # ---- the conversion ---------------------------------------------------------------------------------------------------------
@@ -247,7 +241,7 @@ def convert(path: Path, *, title=None, output=None, cover=None, use_cover=True, 
             'pcm_hash': native['audio_fnv'], 'pcm_samples': native['audio_samples'], 'interrupts': native['interrupts'],
             'frame_rows_equal': True, 'packed_rows_equal': True, 'liveness': report_fields(liveness[name], LIVENESS_FIELDS)})
     report = {'tool': 'Retro-Recomp', 'version': __version__,
-              'system': {'id': 'zxs', 'name': 'ZX Spectrum', 'model': snapshot.model}, 'status': 'experimental',
+              'system': {'id': 'zxs', 'name': 'ZX Spectrum', 'model': snapshot.model}, 'status': get_profile('zxs').status,
               'rom': {**snapshot.metadata(), 'file': Path(path).name}, 'converted': True,
               'compiler': {'engine': 'the banked Z80 chain (retrorecomp/z80_chain.py), machine "zxs"',
                            'native_cpu': 'every instruction position of the Spectrum ROM translated ahead of time; the code the '

@@ -297,6 +297,21 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
 both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
 
+## Game Boy Color: out of experimental, its paths shared (next release)
+
+Arthur's G14 of 27 November 2026 (branch `spec/gbc-supported` on main `847f17ed`). The profile is `supported`, Linux `witnessed`. It shares its paths as schema 3 records
+(`retrorecomp/gbc_knowledge.py`, experimental tier of the base, withdrawable; no quick check from received paths): [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md#shared-paths-g16).
+The converter writes its own record of a verified conversion beside the game's library (`library/gbc/<sha256>/compilation.json`) and the report names it (`knowledge`).
+
+**Stamps** (against main `847f17ed`, all 27 profiles compared): **the game stamps of the Game Boy (`6db20ea8` to `40bf7ffd`) and of the Game Boy Color (`4ae5f068` to
+`c4b9ed90`) move**, because `gameboy.py` gained the reading of the shared banks; host and build stamps and every other machine unchanged. The Game Boy's stamps already
+move this release, so no export is converted once more for it. Quick states and cartridge saves unchanged.
+
+**The original Game Boy is unchanged:** an A/B conversion of Super Mario Land with `tools/ab_conversion.py` (main `9ce0f3a6` against the same change on it) is **identical**, 140 files compared.
+
+**Before the release:** the online service must be told about `gbc` (its limits regenerated from this converter and deployed): a machine shared before the service names it
+has its uploads refused whole.
+
 ## Every machine: feedback kinds 28 to 31 reserved for the ZX Spectrum, SG-1000, ColecoVision and Amstrad CPC (next release)
 
 `native/runtime_feedback.h` reserves `RR_FB_ZXS` 28, `RR_FB_SG1000` 29, `RR_FB_COLECO` 30 and `RR_FB_CPC` 31, and `RR_FB_MAX_KIND` goes
@@ -316,10 +331,28 @@ conversion's own routes (`native.patterns`) and, where paths are shared, from th
 **What a game's code gains.** The converter generates the same sources; the header is copied beside them. The only compiled change is the
 guard of `rr_feedback_note` in `native/runtime_feedback.c`, the one user of `RR_FB_MAX_KIND`: the object of that file differs in two
 immediates, the range check of the kind from 1-27 to 1-31 (clang `-O2`), nothing else. A game of an older machine notes only its own kinds,
-all below 28, so the guard lets through and refuses exactly what it did. An export of the previous release therefore differs from a fresh
-one by those bytes alone, with the same behaviour: its game stamp belongs in `LEGACY_GAME_STAMPS` at the release.
+all below 28, so the guard lets through and refuses exactly what it did: this change alone leaves an older machine's game
+behaving the same, and its game stamp belongs in `LEGACY_GAME_STAMPS` at the release.
 
-**Quick states and hot path:** unchanged (no state field, no new call).
+**Evidence: the same game converted before and after, at the same folder path** (one detached tree; `--scan-level quick`, an empty
+library, no cover, `RETRO_RECOMP_TOOLCHAIN=llvm`; the header of `9ce0f3a6`, then the branch's; 27 November 2026). Every conversion
+passed. The kept files of each build are equal, but `runtime_feedback.h` itself and, where noted, a measured file:
+- Master System (Alex Kidd in Miracle World, banked), Game Boy (Nemesis), PC Engine (Alien Crush) and MSX (Nemesis): the game
+  differs in **two bytes**, the two immediates of the guard; the MSX's check and reference programs are identical. The packed games
+  differ in 9 bytes of the compressed stream, as two changed bytes must.
+- NES (Super Mario Bros.): the game and the packed game are **identical**.
+- Mega Drive (Sonic The Hedgehog): the two bytes of the guard, and the quick-state key (`RR16_STATE_ABI` in `retro16_state_config.h`,
+  see below).
+- Super Nintendo (F-Zero): no conclusion from the executable. Its build is guided by a profile measured during the conversion
+  (`hardware-profile.profdata`), and a control converting it twice with the same header differs as much (about 152,000 bytes). Its
+  sources are equal but the header, the measured files and the quick-state key.
+- Not converted: the Neo Geo, CPS-1, CPS-2, X68000, Game Boy Advance, Amiga, Atari ST, Nintendo 64 and PlayStation. For them the
+  object of `runtime_feedback.c` is the evidence: the header's other change is four new names, which no file of theirs uses.
+
+**Quick states.** The Mega Drive's and the Super Nintendo's quick-state key hashes every non-host native file the console owns
+(`console16_state.state_layout_files`), this header included, so it moves. It had already moved this release
+(`native/banked_emitter.inc` changed since v1.9.1), so this change refuses no further state. The other machines' keys do not hash
+this header. **Hot path:** unchanged (no new call).
 
 ## Game Boy Color: the F1 help offers no palette key (next release)
 
@@ -499,6 +532,79 @@ changes for a player:
 no export is rebuilt or rediscovered. The role stamps of all 27 machines were compared before and after: identical. Locale files
 (`assets/locales`) gain one key, `base_error_toolarge`.
 
+## Every machine: automatic console detection refuses firmware and other machines' files, and finds MSX1 games it missed (next release)
+
+Found on 27 November 2026 by running the detection of the window's drop and of `batch --system auto` over a player's whole library
+(12,347 cartridge, disk and disc files) and over his frontend's bios folder (1,503 files). What changes for a player:
+- **76 more MSX1 cartridges are recognised by content when nothing else says the machine.** A loose `.rom` (or the one `.rom` of a
+  ZIP) is an MSX cartridge when the BIOS would take it: an "AB" header with an INIT pointer below C000h. The sniff used to want
+  every routine pointer in range and the reserved bytes empty, so a file dropped from outside an `msx2` folder, or with the console
+  on Automatic, said « Unknown console » for 77 of the 439 MSX1 zips of one library (Hydlide 3 and many others write text over those
+  fields); 76 are recognised now. The path with the console chosen, or from an `msx2` folder (`read_cartridge`), was not affected
+  (438 of 439 before and after). R-Type is not converted: its mapper is not supported (384 KiB, its 4000h page fixed to a late bank,
+  its 8000h page switched by writes to 7000h-7FFFh), and its "AB" header, at 3C000h, is not where the BIOS looks.
+- **Firmware is refused, with its reason, instead of converted as a game.** The Mega-CD boot ROM (Mega Drive header), the BS-X
+  BIOS, the Super Game Boy cartridges and the Sufami Turbo base (Super Nintendo), the PC Engine CD System Card dropped as a `.pce`, and
+  the MSX system ROMs (disk, MSX-MUSIC, BASIC and language extensions, RS-232C, machines' whole firmware) give a sentence that says
+  what the file is. Nothing is converted from them; the firmware search still finds the System Card and the MSX BIOS as before.
+- **Sufami Turbo games are refused as unsupported** (they need the Sufami Turbo base cartridge in the console), instead of being
+  converted as plain Super Nintendo games.
+- **A `.d88` of an X1, PC-88 or PC-98 (2D, 2DD, 1D, 1DD) and a `.m3u` of discs are no longer taken for X68000 disks**: the X68000
+  claims a `.d88` only when its header says 2HD and a playlist only when it lists X68000 floppy images. The header test is the
+  reader's own (`x68000_media.d88_media`), so a raw 2HD image named `.d88` whose first sector is zeros is still read as before.
+- **An Amiga `.lha` with several WHDLoad slaves says so**: « holds several WHDLoad slaves (...): one install per archive is
+  expected », in the eight languages, where it said it held none.
+- The disks of an Amstrad CPC game named « (Disk 1 of 2) » are queued one by one: they were grouped into an MSX2+ playlist that failed.
+
+**Stamps**: the game stamp of every machine moves (the shared `retrorecomp/cartridge16.py`, the Mega Drive and Super Nintendo
+readers' firmware checks); this is on top of the 1.10.0 shared header, which moves them already. The MSX, MSX2 and MSX2+
+game stamps (`msx_rom`, `systems/msx`), the Amiga 500 and 1200's (`amiga`, `systems/amiga`), the X68000's (`systems/x68000`, `x68000_media`), the PC
+Engine's (`pce_rom`) and the PC Engine CD's (`pcecd_card`) move for their own file. Interface modules changed without a stamp:
+`rom_sources` (the CPC disks), `i18n` and the locale files (`amiga_several_slaves`). Exports are upgraded (rebuilt), never
+rediscovered; no learned path is lost.
+
+## ZX Spectrum: supported, and listed in every installation (next release)
+
+The ZX Spectrum leaves the experimental status on the owner's decision of 27 November 2026, after his play test (G14).
+
+- **What changes:** the profile's status is `supported` and it is no longer developer-only: the window, the batch and the Options
+  tab list it in every installation. A report's `status` field follows the profile. The Options note and the scan note are
+  rewritten in the eight languages. Path sharing is declined on its measure (`DECLINED['path_sharing']`, G16 `-`): at most 0.089 %
+  of the instructions of a long route would become native. Five risk cases join `tools/campaign-risk-cases.json`.
+- **What does not change:** the machine, its native code and its routes. A game converted before and after is the same game.
+- **Known limits, unchanged:** snapshots only (no tapes, +2A, +3 or disks); lines drawn at their end; a snapshot without a frame
+  position starts at the interrupt's end; the game records nothing of the code a player reaches past the routes (its
+  runtime-feedback kind, 28, is reserved and the F12 row stays OFF) ([ZX_SPECTRUM.md](ZX_SPECTRUM.md), section 5).
+
+**Stamps**: the ZX Spectrum's game stamp (its profile and its conversion module); nothing else. The machine was developer-only,
+so the only exports are the maintainer's own: a new conversion rebuilds them.
+
+## Commodore Amiga 500 and 1200: the detection chooses the install's slave as the conversion does (next release)
+
+Found while reviewing the section above: of a player's 4,788 WHDLoad archives, 40 hold several slaves, and the detection (the
+window's drop, `batch --system auto`) refused all 40, while the conversion itself (`amiga_whdload.install`) already chose the
+game's slave when one is named as the install's folder ("Superfrog/Superfrog.Slave" beside "Superfrog/SuperfrogIntro.Slave").
+Both now ask one chooser, `amiga_whdload.slave_choice`, reading the archive's headers only:
+
+- **The game beside its Intro, an editor, a save-disk maker or a memory variant converts**: 25 archives (Superfrog, Fuzzball,
+  Entity, Golden Eagle, Jetstrike, Renegades and its editor, Legend and its save-disk maker, 3D Pool, Virocop...).
+- **The same slave also kept in the data folder** (same size and stored CRC) takes the copy in the install's folder, the one its
+  icon starts: 4 archives (Magicland Dizzy and Western Games). Different slaves of that name are still refused.
+- **An archive of several games is still refused**, with the « several slaves » sentence: 11 archives (a game and its data disk or
+  expansion, such as Populous 2 & Challenge Games or Vroom & Data Disk, two-disk collections, and Time Runners' 30 episodes). Each slave
+  as its own export is a later item.
+
+The folder scan of the 40 gives 29 accepted, 11 refused with that sentence. Renegades (an editor slave beside the game) and Superfrog
+(its Intro), converted through `batch` with automatic detection at the standard level, choose the game's slave and reach the game: the
+fresh same-machine reference agrees on both routes of 3,600 frames, with no interpreter fallback on the tested scenarios. An archive with
+one slave is chosen as before: Lotus 2 converted before and after this change (same snapshot folder, standard level) gives the same
+seven replay traces, results and frames byte for byte. Its two executables (28,445,184 bytes unpacked) differ only where the game stamp
+is written: the build folder's name (15 times), the quick-state key (it hashes the game stamp) and vAmiga's compile date, a fresh build.
+
+**Stamps**: the Amiga 500 and 1200 game stamps (`retrorecomp/amiga.py`, `retrorecomp/amiga_whdload.py`), already moved by the
+section above and by 1.10.0, and with them the Amiga quick-state key, as for every game-stamp change. No host stamp; the play of an
+archive that was accepted before does not change.
+
 ## ZX Spectrum: converted through batch and the window on a developer tree (next release)
 
 `zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`
@@ -577,6 +683,21 @@ runs 19 % fewer instructions in its 2,100 frames, Head over Heels' 8 %.
 
 **Stamps**: the ZX Spectrum's game stamp (its machine, glue, reference runner, builder, profile and conversion); nothing else.
 
+## Amstrad CPC: supported, in every installation (next release)
+
+The owner played the three delivered CPC games and gave G14 (27 November 2026), so the CPC leaves the experimental status
+(`docs/AMSTRAD_CPC.md`): `AmstradCpcProfile` is `supported`, its Linux conversion witnessed (five panel games converted in WSL
+from the same commit as on Windows, equal final checks and multiplayer digests), and no longer `developer_only`: the packaged
+converter lists it, identifies its disks and converts them (`available()` is the default; `cpc_conversion.developer_available`
+is gone). The Options note says what it converts in the eight languages; the report's `delivery_note` no longer says « developer
+only, experimental »; five risk cases join `tools/campaign-risk-cases.json`; paths are not shared (`DECLINED['path_sharing']`,
+G16 `-`: received paths add no native instruction and save one learning pass). The optimisations on the maintainer's list (no
+picture on a silent rollback frame, the board caught up only at its events) stay out.
+
+**Stamps** (`compilation_inputs.role_stamps`, 27 profiles, before and after): the CPC's game stamp only
+(`systems/amstrad_cpc.py`, `cpc_conversion.py`); no host or build stamp, no other machine. Exports made by a development tree
+before this change convert again under the new game stamp; no released export exists.
+
 ## ZX Spectrum, SG-1000, ColecoVision, MSX, MSX2, MSX2+, Amstrad CPC: the build tracks what a game's resources embed (next release)
 
 The resource compiler (llvm-rc) reads the files content.rc names (the ROM, the machine image, the notices, the icon through the
@@ -649,6 +770,17 @@ hide (Bump 'N' Jump draws cars over its status line).
 **Stamps** (measured with `compilation_inputs.role_stamps`): the host stamp of every machine on the host kit moves (`retrorecomp.hostkit`
 stages the new piece); the game stamps of the SG-1000, the ColecoVision, the Master System, the Game Gear, the MSX, the MSX2 and the MSX2+
 move (the video chip's files, `shares:tms9918`, and the option's); no quick state changes.
+
+## SG-1000 and ColecoVision: supported (next release)
+
+Both profiles move from `experimental`, developer only, to **`supported`** (the owner's G14 of 27 November 2026, [QUALIFICATION.md](QUALIFICATION.md)):
+every installation lists them, the Linux converter takes them (`linux = 'witnessed'`), and the interface notes, the scan note and the delivery note of a
+report say so in the eight languages. What a conversion does is unchanged: the same translation, checks, player and routes.
+
+- **Stamps:** only the **game stamps of `sg1000` and `coleco`** move (their profile and conversion modules); no host or build stamp, and no other
+  machine's. No release carried these two machines, so no player's export is concerned; the maintainer's own exports reconvert once.
+- Paths are not shared (G16 `-`). Their runtime-feedback kinds (29 and 30) are reserved by [the shared change](#every-machine-feedback-kinds-28-to-31-reserved-for-the-zx-spectrum-sg-1000-colecovision-and-amstrad-cpc-next-release); nothing is recorded under them.
+- `tools/campaign.py` reads the ColecoVision's ROM folder as `colecovision`, and `tools/campaign-risk-cases.json` lists four cases for each machine.
 
 ## Z80 chain (MSX family, SG-1000, ColecoVision, ZX Spectrum, Amstrad CPC): no bound on the code learned from RAM, and the reports count windows and bodies apart (next release)
 

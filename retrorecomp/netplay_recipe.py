@@ -83,12 +83,12 @@ LEFT_OUT = {
     'pcecd': ('its paths are keyed by the disc and the System Card together (the disc is a CHD, a CUE sheet with its tracks or an ISO, not a dump with a ROM hash), and its conversion '
               'reads observations of its own in the library folder of the game; how they travel as numbers and are rebuilt on the other side is not established'),
     'n64': 'its conversion keeps its own files in the library folder of the game; recipe mode is not established for it',
-    'sg1000': 'experimental, developer only: it has a multiplayer session (rollback) but no path record, so recipe mode is not established for it',
-    'coleco': 'experimental, developer only: it has a multiplayer session (rollback) but no path record, so recipe mode is not established for it',
+    'sg1000': 'it has a multiplayer session (rollback) but its paths are not shared, so recipe mode is not established for it',
+    'coleco': 'it has a multiplayer session (rollback) but its paths are not shared, so recipe mode is not established for it',
     'scummvm': 'emulated: it translates no code and has no path to carry; recipe mode is not wired for it',
-    'zxs': 'experimental, developer only: it has a multiplayer session (rollback) but no path record, so recipe mode is not established for it',
-    'cpc': ('experimental, developer only: it has a multiplayer session (rollback, the host disk A as the save) but no path '
-            'record (what a game teaches lives in its build folder), so recipe mode is not established for it'),
+    'zxs': 'it has a multiplayer session (rollback) but no path record, so recipe mode is not established for it',
+    'cpc': ('it has a multiplayer session (rollback, the host disk A as the save) but no path record (what a game teaches lives '
+            'in its build folder, and its paths are not shared), so recipe mode is not established for it'),
 }
 
 

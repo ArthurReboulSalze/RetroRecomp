@@ -90,9 +90,9 @@ class AmigaProfile(SystemProfile):
             return None
         if not self.available():
             raise UnsupportedConsoleError('The Commodore Amiga profile is unavailable in this installation.')
-        from ..amiga import slave_member
+        from ..amiga import no_install_reason, slave_member
         if slave_member(path) is None:
-            raise UnsupportedConsoleError(f'{path.name} holds no WHDLoad slave (.Slave): not an Amiga WHDLoad install.')
+            raise UnsupportedConsoleError(no_install_reason(path))
         if selected_system and selected_system != self.id:
             raise ConsoleMismatchError('Detected Commodore Amiga; choose Automatic or Commodore Amiga.', self.id)
         return self
@@ -167,10 +167,10 @@ class Amiga1200Profile(AmigaProfile):
             return None
         if not self.available():
             raise UnsupportedConsoleError('The Commodore Amiga 1200 profile is unavailable in this installation.')
-        from ..amiga import slave_member, slave_wants_a1200
+        from ..amiga import no_install_reason, slave_member, slave_wants_a1200
         if slave_member(path) is None:
             if selected_system == self.id:
-                raise UnsupportedConsoleError(f'{path.name} holds no WHDLoad slave (.Slave): not an Amiga WHDLoad install.')
+                raise UnsupportedConsoleError(no_install_reason(path))
             return None
         if selected_system == self.id or path.parent.name.lower() in A1200_FOLDERS or slave_wants_a1200(path):
             return self

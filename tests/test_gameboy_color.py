@@ -84,10 +84,10 @@ class WhereAFileGoes(unittest.TestCase):
 
 
 class TheProfile(unittest.TestCase):
-    def test_it_is_experimental_and_its_own_machine(self):
+    def test_it_is_supported_and_its_own_machine(self):
         profile = get_profile('gbc')
         self.assertEqual((profile.status, profile.linux, profile.export_folder, profile.video_modes),
-                         ('experimental', 'pending', 'Game Boy Color', ('cgb',)))
+                         ('supported', 'witnessed', 'Game Boy Color', ('cgb',)))
         self.assertEqual(profile.library_layout.folder, 'gbc')
         self.assertEqual(profile.path_spec.sections, (('sm83', 'gbc'),))
         self.assertEqual(profile.quick_state_family, 'gbc')
