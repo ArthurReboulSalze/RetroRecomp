@@ -173,16 +173,22 @@ static bool crt_d3d_upload(ID3D11Device *device, ID3D11DeviceContext *context, c
     return true;
 }
 
+/* The pass made for this device (its shaders compiled): at the first CRT frame, or when the run opens on a CRT look. */
+static bool crt_d3d_ready(ID3D11Device *device) {
+    if (crt_pass.state == 1 && crt_pass.device != (void *)device) { crt_d3d_release(); crt_pass.state = 0; }   /* a new device */
+    if (crt_pass.state == 0) {
+        if (!crt_d3d_create(device)) return false;
+        crt_pass.state = 1; crt_pass.backend = "direct3d11"; crt_pass.device = device;
+        fprintf(stderr, "[host] CRT look: drawn by the graphics card (Direct3D 11, CRTS)\n");
+    }
+    return crt_pass.state == 1;
+}
+
 static bool crt_d3d_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, int height, int pitch, const SDL_Rect *dst, int lines, bool curved,
                          int style) {
     ID3D11Device *device = SDL_RenderGetD3D11Device(ren);
     if (!device) { crt_unavailable("no Direct3D 11 device"); return false; }
-    if (crt_pass.state == 1 && crt_pass.device != (void *)device) { crt_d3d_release(); crt_pass.state = 0; }   /* a new device */
-    if (crt_pass.state == 0) {
-        if (!crt_d3d_create(device)) { ID3D11Device_Release(device); return false; }
-        crt_pass.state = 1; crt_pass.backend = "direct3d11"; crt_pass.device = device;
-        fprintf(stderr, "[host] CRT look: drawn by the graphics card (Direct3D 11, CRTS)\n");
-    }
+    if (!crt_d3d_ready(device)) { ID3D11Device_Release(device); return false; }
     ID3D11DeviceContext *context = NULL;
     ID3D11Device_GetImmediateContext(device, &context);
     bool drawn = false;
@@ -389,13 +395,18 @@ static bool crt_gl_create(void) {
     return true;
 }
 
-static bool crt_gl_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, int height, int pitch, const SDL_Rect *dst, int lines, bool curved,
-                        int style) {
+static bool crt_gl_ready(void) {
     if (crt_pass.state == 0) {
         if (!crt_gl_create()) return false;
         crt_pass.state = 1; crt_pass.backend = "opengl";
         fprintf(stderr, "[host] CRT look: drawn by the graphics card (OpenGL, CRTS)\n");
     }
+    return crt_pass.state == 1;
+}
+
+static bool crt_gl_draw(SDL_Renderer *ren, const uint32_t *pixels, int width, int height, int pitch, const SDL_Rect *dst, int lines, bool curved,
+                        int style) {
+    if (!crt_gl_ready()) return false;
     int out_w = 0, out_h = 0;
     SDL_GetRendererOutputSize(ren, &out_w, &out_h);
     /* save what the pass sets */
@@ -485,6 +496,23 @@ static bool rrhk_crt_pass_draw(SDL_Renderer *ren, const uint32_t *pixels, int wi
     if (d3d11) return crt_d3d_draw(ren, pixels, width, height, pitch, dst, lines, curved, style);
 #endif
     return crt_gl_draw(ren, pixels, width, height, pitch, dst, lines, curved, style);
+}
+
+/* A run that opens on a CRT look compiles the pass's shaders here, before its first frame, instead of in that frame (the
+ * compile takes about a tenth of a second); any other run compiles them at the first CRT frame (F3), as before. */
+void rrhk_crt_pass_prepare(SDL_Renderer *ren) {
+    SDL_RendererInfo info;
+    if (crt_pass.state != 0 || SDL_GetRendererInfo(ren, &info) != 0 || !info.name) return;
+#ifdef _WIN32
+    if (!strcmp(info.name, "direct3d11")) {
+        ID3D11Device *device = SDL_RenderGetD3D11Device(ren);
+        if (!device) return;
+        crt_d3d_ready(device);
+        ID3D11Device_Release(device);
+        return;
+    }
+#endif
+    if (!strcmp(info.name, "opengl")) crt_gl_ready();
 }
 
 /* The pass's resources, before the renderer goes (close_run). */

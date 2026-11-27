@@ -199,6 +199,7 @@ const char *rrhk_crt_style_name(int style);
 const char *rrhk_lcd_style_name(int style);
 void rrhk_look_style_next(bool lcd, int step);
 int rrhk_look_style(void);           /* the style of the look the filter shows: the CRT style, the LCD panel, or -1 for the LCD grid */
+void rrhk_crt_pass_prepare(SDL_Renderer *ren);   /* a run opening on a CRT look compiles the card's pass before its first frame */
 void rrhk_graphics_draw(SDL_Renderer *renderer);
 void rrhk_turn_page(int step);
 void rrhk_toggle_settings(void);

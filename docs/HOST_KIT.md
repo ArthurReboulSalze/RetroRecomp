@@ -738,8 +738,10 @@ X68000 too, without asking again**.
       brightness holds, and the renderers agree with each other.
   * Since stage 2, F3's notice names every filter in the five game languages (before, only « Sharp pixels » was translated,
     and only to French). Open: the mask and frame overlays are made on the CPU at the output's size when it changes (about
-    8 million texels at 4K, one hitch per resize); a small tiled mask would avoid it. The pass compiles its shaders on the first
-    CRT frame (a short hitch, once a run); compiling them when the run opens would avoid it.
+    8 million texels at 4K, one hitch per resize); a small tiled mask would avoid it. Since the styles, a run that opens on a CRT
+    look compiles the pass's shaders when it opens (`rrhk_crt_pass_prepare`), before its first frame; a run that reaches a CRT
+    look by F3 still compiles them at that frame (Direct3D 11: about 0.1 to 0.2 s once a run, `D3DCompile` keeps no cache;
+    OpenGL drivers cache them after the first run).
   * **Styles** (27 November 2026, after the players' first shots on Discord: a sharper CRT, an arcade monitor, handheld screens
     closer to the real ones). F3's list keeps its length; each look gets a style, kept per machine in `[<Console>.Video]`:
     * **CRT style** (`crt_style`: 0 soft, 1 sharp, 2 arcade), a row of the options page after « F3 Filter » (on the graphics

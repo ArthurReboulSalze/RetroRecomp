@@ -364,6 +364,9 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     if (lcd_style && lcd_style[0] >= '0' && lcd_style[0] < '0' + RR_LCD_STYLES && !lcd_style[1]) rrhk.lcd_style = lcd_style[0] - '0';
     const char *crt_pass = r->test_frames ? getenv("RETRORECOMP_HOST_TEST_CRT_PASS") : NULL;   /* "0": stage 1 on the card too */
     r->crt_pass_off = crt_pass && !strcmp(crt_pass, "0");
+    /* D35: a run opening on a CRT look compiles the graphics card's pass now rather than in its first frame */
+    if ((rrhk.filter == RR_FILTER_CRT_FLAT || rrhk.filter == RR_FILTER_CRT_CURVED) && !r->software && !r->crt_pass_off)
+        rrhk_crt_pass_prepare(r->ren);
     /* The graphics options (D14): the saved values, or in a hidden-window test run the defaults; then --gfx; applied once each. */
     if (m->gfx_option_count > 0) rrhk_gfx_start(r->test_frames != 0);
     quit_asked = false;
