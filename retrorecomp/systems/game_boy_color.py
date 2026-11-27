@@ -18,8 +18,8 @@ from .specs import (CARTRIDGE_BOUNDS, Catalogues, Identify, InputLayout, Library
 
 class GameBoyColorProfile(SystemProfile):
     id = "gbc"
-    status = "experimental"
-    linux = "pending"
+    status = "supported"
+    linux = "witnessed"
     # Multiplayer: the Game Boy's session and its link cable (GBC with GBC only; docs/GAME_BOY_COLOR.md). Set once the pair of Color consoles was proved
     # on one PC: tools/gameboy_link_selftest.py --model cgb (every pairing of normal and double speed, normal and fast serial clock) and the room's smoke test.
     netplay_seats = 1
@@ -59,7 +59,9 @@ class GameBoyColorProfile(SystemProfile):
                             igdb="gbc", wikidata=("Q203992",), cover_references=True)
     library_layout = LibraryLayout(folder="gbc", summary_glob="*/trace.json", companion="entries.trace")
     input_layout = InputLayout(("a", "b"), (), "select", 180, script_format="gameboy")
-    shared_knowledge = None
+    # Schema 3 records (gbc_knowledge), in the experimental tier of the base. A conversion that received paths still runs its own
+    # passes and comparisons: the Color's double speed was proved only by the longer comparisons, which a quick check skips.
+    shared_knowledge = SharedKnowledge('experimental', withdrawable=True, quick_check_from_shared=False, module='gbc_knowledge')
     # A headerless dump is a Color cartridge when its header checksum, declared size and title agree and its flag says Color-only.
     identify = Identify(content_order=7)
 

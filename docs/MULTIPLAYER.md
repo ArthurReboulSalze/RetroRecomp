@@ -60,7 +60,7 @@ match. On the PlayStation, a disc cannot be changed during a match.
 | ZX Spectrum | smooth | 2 | in development, developer only; player 1 on the snapshot's joystick, player 2 on the Interface 2 keys player 1 does not use; the host types on the keyboard; both PCs need the same ROMs |
 | Amstrad CPC | smooth | 2 | in development, developer only; the host types on the keyboard; the host's disk A is the match's save, both PCs need the same firmware |
 | Game Boy | smooth | shared, or 2 by link cable | |
-| Game Boy Color | smooth | shared, or 2 by link cable | the cable joins two Color consoles of the same game, in every pairing of normal and double speed (no Color with a Game Boy); experimental |
+| Game Boy Color | smooth | shared, or 2 by link cable | the cable joins two Color consoles of the same game, in every pairing of normal and double speed (no Color with a Game Boy) |
 | Game Boy Advance | delay | shared, or 2 by link cable | the cable on every game (not Single-Pak) |
 | Amiga 500 and 1200 | smooth | 2 | the host types on the keyboard |
 | Atari ST | smooth | 2 | the host types on the keyboard |

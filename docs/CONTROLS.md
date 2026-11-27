@@ -154,7 +154,7 @@ EEPROM) is kept in `datas/saves` and written when it changes and at exit. The he
 
 ### Game Boy Color
 
-Experimental, not in a release yet. One player, with the Game Boy's keys and pad: arrows move, **S/D** are A/B, **Enter** is
+One player, with the Game Boy's keys and pad: arrows move, **S/D** are A/B, **Enter** is
 cartridge Start and either **Shift** is cartridge Select; P pauses; F6 autofire, F8 and F9 quick states, the F2 pages and the
 speed and sound controls are the common ones. There is no palette choice: a Color game uses its own colours, F5 only shows a
 notice saying so, and the options page has no palette row. A rumble cartridge does not make the pad vibrate
