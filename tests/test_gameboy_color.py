@@ -135,6 +135,19 @@ class WhatAColorGameShows(unittest.TestCase):
         line = next(text for text in helps.splitlines() if 'Monochrome / classic green' in text)
         self.assertIn('if (!rr_gb_color_game())', line)
 
+    def test_every_machine_with_a_link_cable_is_named_where_the_cable_is_described(self):
+        from retrorecomp.i18n import STRINGS, catalog
+        from retrorecomp.systems import ALL_PROFILES
+        names = [profile.name for profile in ALL_PROFILES if profile.netplay_link_seats]
+        for key in ('help_mp_link_note', 'credits_own_multiplayer'):
+            english, french = STRINGS[key]
+            texts = {'en': english, 'fr': french, **{language: catalog(language)['ui'][key] for language in ('de', 'es', 'it', 'ja', 'ru', 'zh')}}
+            for language, text in texts.items():
+                for name in names:
+                    # The Game Boy's own name is also the beginning of the two others: it must stand alone.
+                    alone = text.replace('Game Boy Advance', '').replace('Game Boy Color', '').replace('Game-Boy-Advance', '')
+                    haystack = alone if name == 'Game Boy' else text
+                    self.assertTrue(name in haystack or name.replace(' ', '-') in haystack, (language, key, name))
 
 if __name__ == '__main__':
     unittest.main()
