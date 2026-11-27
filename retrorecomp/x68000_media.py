@@ -230,18 +230,29 @@ def _u32(data: bytes, at: int) -> int:
     return int.from_bytes(data[at:at + 4], 'little')
 
 
+def d88_media(header: bytes, size: int) -> int | None:
+    """The media byte of a D88 image (a key of D88_MEDIA), read from the file's first D88_HEADER_BYTES bytes and its size;
+    None when they do not describe a D88 image of that size. The one test of a D88 header: `_read_d88` uses it, and so does
+    the X68000 profile when it refuses another machine's D88 (`systems/x68000.py`), so a raw or DIM image named .d88, which
+    `identify_disk` reads for what it is, is never refused for bytes that only look like a header."""
+    looks = (len(header) >= D88_HEADER_BYTES and header[0x1A] in (0x00, 0x10) and header[0x1B] in D88_MEDIA
+             and not any(header[0x11:0x1A]) and _u32(header, 0x1C) == size)
+    offsets = [_u32(header, 0x20 + 4 * track) for track in range(D88_TRACKS)] if looks else []
+    stored = [offset for offset in offsets if offset]
+    return header[0x1B] if stored and min(stored) >= D88_HEADER_BYTES else None
+
+
 def _read_d88(resolved: Path, size: int, digest: str, data: bytes) -> DiskImage:
     """A D88 image: a 0x2B0-byte header (name, write protect, media type, disk size, 164 track offsets), then the sector
     records of each track, a 16-byte header (C, H, R, N, sectors in the track, density, deleted mark, status, data size)
     followed by the data. Stored as its raw XDF equivalent when it is a standard 2HD disk."""
-    looks = (size >= D88_HEADER_BYTES and data[0x1A] in (0x00, 0x10) and data[0x1B] in D88_MEDIA
-             and not any(data[0x11:0x1A]) and _u32(data, 0x1C) == size)
-    offsets = [_u32(data, 0x20 + 4 * track) for track in range(D88_TRACKS)] if looks else []
-    stored = [track for track, offset in enumerate(offsets) if offset]
-    if not looks or not stored or min(offsets[track] for track in stored) < D88_HEADER_BYTES:
+    media = d88_media(data, size)
+    if media is None:
         raise _NotThisFormat('Not a D88 image.')
-    if data[0x1B] != 0x20:
-        raise ValueError(f'X68000 D88 image is a {D88_MEDIA[data[0x1B]]} disk; only 2HD is supported.')
+    if media != 0x20:
+        raise ValueError(f'X68000 D88 image is a {D88_MEDIA[media]} disk; only 2HD is supported.')
+    offsets = [_u32(data, 0x20 + 4 * track) for track in range(D88_TRACKS)]
+    stored = [track for track, offset in enumerate(offsets) if offset]
     if stored != list(range(154)):
         raise ValueError('X68000 D88 image does not store the 154 tracks of a 77-cylinder two-sided disk.')
     record = D88_SECTOR_HEADER_BYTES + 1024

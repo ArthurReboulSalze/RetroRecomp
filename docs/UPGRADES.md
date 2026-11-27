@@ -517,14 +517,15 @@ Found on 27 November 2026 by running the detection of the window's drop and of `
 - **Sufami Turbo games are refused as unsupported** (they need the Sufami Turbo base cartridge in the console), instead of being
   converted as plain Super Nintendo games.
 - **A `.d88` of an X1, PC-88 or PC-98 (2D, 2DD, 1D, 1DD) and a `.m3u` of discs are no longer taken for X68000 disks**: the X68000
-  claims a `.d88` only when its header says 2HD and a playlist only when it lists X68000 floppy images.
+  claims a `.d88` only when its header says 2HD and a playlist only when it lists X68000 floppy images. The header test is the
+  reader's own (`x68000_media.d88_media`), so a raw 2HD image named `.d88` whose first sector is zeros is still read as before.
 - **An Amiga `.lha` with several WHDLoad slaves says so**: « holds several WHDLoad slaves (...): one install per archive is
   expected », in the eight languages, where it said it held none.
 - The disks of an Amstrad CPC game named « (Disk 1 of 2) » are queued one by one: they were grouped into an MSX2+ playlist that failed.
 
 **Stamps**: the game stamp of every machine moves (the shared `retrorecomp/cartridge16.py`, the Mega Drive and Super Nintendo
 readers' firmware checks); this is on top of the 1.10.0 shared header, which moves them already. The MSX, MSX2 and MSX2+
-game stamps (`msx_rom`, `systems/msx`), the Amiga 500 and 1200's (`amiga`, `systems/amiga`), the X68000's (`systems/x68000`), the PC
+game stamps (`msx_rom`, `systems/msx`), the Amiga 500 and 1200's (`amiga`, `systems/amiga`), the X68000's (`systems/x68000`, `x68000_media`), the PC
 Engine's (`pce_rom`) and the PC Engine CD's (`pcecd_card`) move for their own file. Interface modules changed without a stamp:
 `rom_sources` (the CPC disks), `i18n` and the locale files (`amiga_several_slaves`). Exports are upgraded (rebuilt), never
 rediscovered; no learned path is lost.
