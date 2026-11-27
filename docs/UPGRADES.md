@@ -299,15 +299,15 @@ both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arc
 
 ## Game Boy Color: out of experimental, its paths shared (next release)
 
-Arthur's G14 of 27 November 2026 (branch `spec/gbc-supported` on main `9ce0f3a6`). The profile is `supported`, Linux `witnessed`. It shares its paths as schema 3 records
+Arthur's G14 of 27 November 2026 (branch `spec/gbc-supported` on main `847f17ed`). The profile is `supported`, Linux `witnessed`. It shares its paths as schema 3 records
 (`retrorecomp/gbc_knowledge.py`, experimental tier of the base, withdrawable; no quick check from received paths): [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md#shared-paths-g16).
 The converter writes its own record of a verified conversion beside the game's library (`library/gbc/<sha256>/compilation.json`) and the report names it (`knowledge`).
 
-**Stamps** (against main `9ce0f3a6`, all 27 profiles compared): **the game stamps of the Game Boy (`e575f005` to `12e9e56a`) and of the Game Boy Color (`943e626a` to
-`52255c65`) move**, because `gameboy.py` gained the reading of the shared banks; host and build stamps and every other machine unchanged. The Game Boy's stamps already
+**Stamps** (against main `847f17ed`, all 27 profiles compared): **the game stamps of the Game Boy (`6db20ea8` to `40bf7ffd`) and of the Game Boy Color (`4ae5f068` to
+`c4b9ed90`) move**, because `gameboy.py` gained the reading of the shared banks; host and build stamps and every other machine unchanged. The Game Boy's stamps already
 move this release, so no export is converted once more for it. Quick states and cartridge saves unchanged.
 
-**The original Game Boy is unchanged:** an A/B conversion of Super Mario Land with `tools/ab_conversion.py` (main `9ce0f3a6` against `184f1dde`) is **identical**, 140 files compared.
+**The original Game Boy is unchanged:** an A/B conversion of Super Mario Land with `tools/ab_conversion.py` (main `9ce0f3a6` against the same change on it) is **identical**, 140 files compared.
 
 **Before the release:** the online service must be told about `gbc` (its limits regenerated from this converter and deployed): a machine shared before the service names it
 has its uploads refused whole.
