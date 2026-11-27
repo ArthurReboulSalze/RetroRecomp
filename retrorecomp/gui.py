@@ -572,10 +572,10 @@ class Application(WindowMixin, QueueMixin, ConversionMixin, CollectionMixin, Upd
         if self.start_front_end.get():
             app.after(300, lambda: self.enter_front_end(fullscreen=self.start_front_end_fullscreen.get()))
         app.after(2500, self.refresh_player)
-        # The collection's module and the multiplayer code it imports (about 0.3 s) are read in a worker once the window is up,
-        # so that the first Compiled Games does not wait for them on Tk's thread (27 November 2026). Reading a module touches
-        # no widget.
-        app.after(2000, lambda: threading.Thread(target=warm_modules, name='warm-modules', daemon=True).start())
+        # The collection's module and the multiplayer code it imports (about 0.3 s) are read in a worker once the window has
+        # settled, so that the first Compiled Games does not wait for them on Tk's thread (27 November 2026). Reading a module
+        # touches no widget, but holds the interpreter: at 2 s it slowed the window's first second, so it waits 10 s.
+        app.after(10000, lambda: threading.Thread(target=warm_modules, name='warm-modules', daemon=True).start())
         app.after(2000, self.refresh_first_use)
         if self.discoveries_waiting:   # left waiting when the window last closed
             app.after(6000, self.send_new_discoveries)

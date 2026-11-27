@@ -296,6 +296,29 @@ class CompiledGamesTests(TestCase):
         self.assertEqual(self.inventory.snapshot()[0].source,str(source))
 
 
+class FavoritesSaveOnce(TestCase):
+    """Several games marked at once (the front-end's and the collection's menus) are saved once: a save writes the whole
+    inventory with fsync (about 45 ms for 1,322 games), and one save per game held Tk's thread about a second for 20."""
+    def test_many_games_one_save(self):
+        with tempfile.TemporaryDirectory() as folder:
+            inventory = Inventory(Path(folder) / 'compiled-games.json')
+            games = []
+            for number in range(20):
+                game = Game(title=f'Game {number}', system='sms', identity=f'{number:064x}',
+                            executable=str(Path(folder) / f'Game {number}.exe'))
+                inventory.remember(game)
+                games.append(game)
+            with patch.object(inventory, 'save') as save:
+                inventory.set_favorites(games[:15], True)
+                inventory.set_favorites([], False)
+            self.assertEqual(save.call_count, 1)
+            self.assertEqual(sum(g.favorite for g in inventory.snapshot()), 15)
+            with patch.object(inventory, 'save') as save:
+                inventory.set_favorite(games[0], False)
+            self.assertEqual(save.call_count, 1)
+            self.assertFalse(next(g for g in inventory.snapshot() if g.identity == games[0].identity).favorite)
+
+
 class IncrementalRefreshTests(TestCase):
     """Rows are read again only when their files change; no full scan."""
 

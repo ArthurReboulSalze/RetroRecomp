@@ -188,6 +188,10 @@ class CompiledGamesView(ttk.Frame):
 
     def poll_controller(self):
         if not self.winfo_exists() or not self.controller:return
+        if not self.winfo_ismapped():
+            # Hidden (the queue, Options or the front-end, which reads the pad itself): no pad is read for this list.
+            tk_later.later(self,250,self.poll_controller)
+            return
         active = self.game_process is not None and self.game_process.poll() is None
         if self.game_process is not None and not active:
             self.game_process = None
@@ -342,7 +346,7 @@ class CompiledGamesView(ttk.Frame):
     def toggle_favorites(self):
         games=self.chosen()
         value=not all(g.favorite for g in games)
-        for game in games:self.inventory.set_favorite(game,value)
+        self.inventory.set_favorites(games,value)
         self.render()
 
     def selection(self,event=None):

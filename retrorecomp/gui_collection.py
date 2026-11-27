@@ -198,8 +198,9 @@ class CollectionMixin:
             self.body.rowconfigure(7, weight=0, minsize=0)
             self.compiled_view.grid(row=1,column=0,rowspan=7,sticky='nsew')
             self.compiled_view.render()
-            # Games played or converted elsewhere: re-read only what changed.
-            tk_later.later(self.compiled_view, 'idle', self.compiled_view.quiet_refresh)
+            # Games played or converted elsewhere: re-read only what changed, at most every 20 s as on focus (a refresh
+            # runs over every game in a worker; opened again and again, the list waited for it, 27 November 2026).
+            tk_later.later(self.compiled_view, 'idle', lambda: self.compiled_view.quiet_refresh(every=20))
         else:
             self.compiled_view.grid_remove()
             self.body.rowconfigure(1, weight=4, minsize=100)

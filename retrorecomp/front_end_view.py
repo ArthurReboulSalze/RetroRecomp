@@ -1316,8 +1316,7 @@ class FrontEndView(tk.Frame):
         self.favorites([game], not game.favorite)
 
     def favorites(self, games, value):
-        for game in games:
-            self.owner.compiled_inventory.set_favorite(game, value)
+        self.owner.compiled_inventory.set_favorites(games, value)     # one save for all of them
         # The favourites' entry follows: its number everywhere, its games when it is the one shown.
         current, focus = self.shelf_id(), self.focus_index
         self.build_shelves()
@@ -1347,22 +1346,25 @@ class FrontEndView(tk.Frame):
         threading.Thread(target=worker, daemon=True).start()
         self.draw_details()
 
-    def cover_changed(self, game):
-        """A new cover was given (the box-art window or a search): read it again."""
+    def cover_changed(self, game, request=True):
+        """A new cover was given (the box-art window or a search): read it again. `request` False: the caller asks for the
+        covers once after several games (a search's results: one request each made the search O(n²) on Tk's thread)."""
         key = game_key(game)
         self.thumbnails.pop(key, None)
         self.no_cover.discard(key)
         self.forget_photos(key)
         with self.loader.condition:
             self.loader.done.discard(key)
-        self.request_covers()
+        if request:
+            self.request_covers()
 
     def refresh_covers(self, games):
         """« Refresh » (the right-click menu): read each game's saved cover again; one still missing or unreadable is
         then searched online when the converter's online covers are on (drain)."""
         for game in games:
             self.refreshing.add(game_key(game))
-            self.cover_changed(game)
+            self.cover_changed(game, request=False)
+        self.request_covers()
 
     def online_covers(self):
         online = getattr(self.owner, 'online', None)
@@ -1484,14 +1486,17 @@ class FrontEndView(tk.Frame):
     def drain(self):
         if not self.winfo_exists():
             return
-        changed, lost = False, []
+        changed, lost, by_key, covers = False, [], None, False
         try:
             while True:
                 kind, generation, key, image, ratio = self.events.get_nowait()
                 if kind == 'found':
-                    game = next((g for g in self.games if game_key(g) == key), None)
+                    if by_key is None:
+                        by_key = {game_key(g): g for g in self.games}
+                    game = by_key.get(key)
                     if game is not None and image:
-                        self.cover_changed(game)
+                        self.cover_changed(game, request=False)
+                        covers = True
                     done, total, found = generation
                     self.searching = None if done >= total else generation
                     self.search_result = generation if done >= total else None
@@ -1516,6 +1521,8 @@ class FrontEndView(tk.Frame):
                 changed = True
         except queue.Empty:
             pass
+        if covers:
+            self.request_covers()
         if changed:
             self.update_aspect()
             self.draw_wall()

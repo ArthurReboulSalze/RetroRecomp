@@ -153,9 +153,19 @@ class Inventory:
         return 0
 
     def set_favorite(self, game, value):
+        self.set_favorites([game], value)
+
+    def set_favorites(self, games, value):
+        """Mark or unmark several games, then save once: a save is the whole inventory with fsync (about 45 ms for the
+        owner's 1,322 games), and the front-end and the collection's menu saved once per game (20 games: about 1 s of
+        Tk's thread, 27 November 2026)."""
+        wanted = {(game.system, game.identity) for game in games}
+        if not wanted:
+            return
         with self.lock:
             for entry in self.games.values():
-                if (entry.system,entry.identity)==(game.system,game.identity):entry.favorite=bool(value)
+                if (entry.system, entry.identity) in wanted:
+                    entry.favorite = bool(value)
         self.save()
 
 
@@ -292,6 +302,9 @@ def refresh_changed(inventory, preferences=None, games=None, *, cancel=None, bud
     for game in (inventory.snapshot() if games is None else games):
         if cancel is not None and cancel.is_set() or deadline is not None and time.monotonic() > deadline:
             break
+        # It runs in a worker beside Tk's thread: hand the interpreter back after each game, so that the window's callbacks
+        # never wait the 5 ms switch interval behind it (the window was slow for 1-2 s after start, 27 November 2026).
+        time.sleep(0)
         # A row saved before scan levels were shown is read once more for its level.
         if watch_signature(game) == game.watch and (game.level or not game.report):
             continue

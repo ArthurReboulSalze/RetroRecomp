@@ -585,3 +585,16 @@ class RoundedCornersOff(unittest.TestCase):
 
     def layout(self, name):
         return str(self.style.layout(name))
+
+
+class SurfaceAskedOncePerParent(SkinCase):
+    """A window builds hundreds of widgets in a few frames: the colour they stand on is looked up once per parent
+    (Skin.surface_of's cache), not once per widget walking up to the root each time."""
+
+    def test_many_widgets_in_one_frame_ask_once(self):
+        panel = tk.Frame(self.root, bg='#444444')
+        with patch.object(Skin, 'surface_uncached', autospec=True, side_effect=Skin.surface_uncached) as walk:
+            for _ in range(40):
+                ttk.Button(panel, text='Abc')
+                ttk.Entry(panel)
+        self.assertLessEqual(walk.call_count, 2)
