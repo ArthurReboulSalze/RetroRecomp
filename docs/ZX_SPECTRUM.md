@@ -131,7 +131,8 @@ without it, and Head over Heels' 8 %.
 ## 6. Qualification
 
 The machine's column of [QUALIFICATION.md](QUALIFICATION.md) (22 November 2026): G2 to G6, G10, G12 and G13 `Y`; G1, G8, G9 and
-G15 `P`; G7 `-`; G14 and G16 `?`; G11 `P` since 27 November (agreement with MAME 0.289, below); the evidence is in its entries
+G15 `P`; G7 `-`; G16 `?`; G11 `P` since 27 November (agreement with MAME 0.289, below); G14 `Y` since 27 November (the owner's
+play from Export); the evidence is in its entries
 there. The
 panel of the study, used for the gates once conversions run: Manic Miner (the first game: 48K, the beeper, the ROM's
 interrupt handler), Jetpac (16K), Arkanoid (the floating bus question), Match Day II (two players), Head over Heels (128K
