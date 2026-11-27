@@ -59,6 +59,14 @@ def is_megadrive(data: bytes) -> bool:
     return len(data) >= 0x400 and data[0x100:0x104] == b'SEGA'
 
 
+def megadrive_firmware(data: bytes) -> str | None:
+    """What a Mega Drive image is when it is firmware, not a cartridge: the Mega-CD's 128 KiB boot ROM carries a Mega Drive header
+    whose titles say "BOOT ROM" ("CD2 BOOT ROM", "MEGA-CD BOOT ROM"). None for a game. The reason is the sentence the player reads."""
+    if len(data) == 0x20000 and is_megadrive(data) and b'BOOT ROM' in data[0x120:0x180]:
+        return 'the Mega-CD boot ROM (its BIOS): firmware, not a game, and the Mega-CD is not supported.'
+    return None
+
+
 def megadrive_regions(data: bytes) -> int:
     """Read letter codes or the ASCII hexadecimal region bit mask.
 
@@ -92,6 +100,9 @@ def read_megadrive_rom(path: Path) -> Cartridge16:
     data = cartridge_bytes(path, ('.md', '.gen', '.bin', '.rom'))
     if len(data) < 0x8000 or len(data) > 8 * 1024 * 1024 or len(data) % 2 or not is_megadrive(data):
         raise ConversionError('Expected a linear Mega Drive cartridge with a SEGA header; interleaved SMD is not supported.')
+    firmware = megadrive_firmware(data)
+    if firmware:
+        raise ConversionError(f'{path.name} is {firmware}')
     standard = megadrive_standard(data)
     title = data[0x150:0x180].decode('ascii', errors='replace').strip('\0 ') or path.stem
     return Cartridge16(path, data, 'md', ' '.join(title.split()), standard, 'linear')

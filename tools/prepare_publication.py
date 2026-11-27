@@ -155,7 +155,7 @@ tests/test_installers.py docs/INSTALLING.md
 retrorecomp/compiled_games.py retrorecomp/compiled_games_view.py retrorecomp/memory_view.py retrorecomp/game_removal.py tests/test_game_removal.py
 retrorecomp/compatibility.py assets/release-stamps.json tools/release_stamps.py tests/test_compatibility.py
 retrorecomp/game_details.py retrorecomp/game_metadata.py retrorecomp/game_card_view.py retrorecomp/rom_sources.py
-tests/test_game_cards.py tests/test_disk_sets.py tests/test_auto_detection.py tests/test_x68000_identification.py
+tests/test_game_cards.py tests/test_disk_sets.py tests/test_auto_detection.py tests/test_x68000_identification.py tests/test_firmware_not_games.py
 docs/COMPILED_GAMES.md docs/UPGRADES.md docs/UPGRADES_HISTORY.md docs/UPGRADES_HISTORY_OLDER.md
 tools/qualification_gauges.py tests/test_qualification_gauges.py
 MEDIAS/RetroRecomp_UI_1.1.5.jpg
