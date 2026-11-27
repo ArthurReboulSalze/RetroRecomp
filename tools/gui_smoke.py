@@ -732,6 +732,9 @@ def smoke(window):
             assert application.active_rows==selected, (application.active_rows, selected, application.status.get())
             assert all(application.row_status[row]=='current' for row in selected)
     application.show_options()
+    for index in range(len(application.options_console_pages)):
+        application.build_console_page(index)       # the machine pages are built when shown: every one, for the checks below
+    assert set(application.level_timings) == {system for system, _, _ in application.options_console_pages}
     open_notebook = next(widget for widget in application.options_panel.winfo_children()
                          if isinstance(widget, ttk.Notebook))
     for language in (*LANGUAGES[1:], 'en'):
