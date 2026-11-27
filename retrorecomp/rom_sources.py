@@ -50,9 +50,16 @@ def disk_set_kinds() -> tuple:
 
 
 def disk_kind(path):
-    """The kind of a disk file by its suffix, None for a file that is no machine's disk."""
+    """The kind of a disk file by its suffix, None for a file that is no machine's disk. A ``.dsk`` that carries the
+    CPCEMU signature is an Amstrad CPC disk, not a raw MSX one: the CPC converts one disk per game and has no disk set,
+    so its disks are never grouped into an MSX2+ playlist (each one is queued, and identified, on its own)."""
     suffix = Path(path).suffix.casefold()
-    return next((kind for kind in disk_set_kinds() if suffix in kind.suffixes), None)
+    kind = next((kind for kind in disk_set_kinds() if suffix in kind.suffixes), None)
+    if kind is not None and suffix == '.dsk':
+        from .cpc_disk import looks_like_cpc
+        if looks_like_cpc(Path(path)):
+            return None
+    return kind
 
 
 def playlist_owner(path):
