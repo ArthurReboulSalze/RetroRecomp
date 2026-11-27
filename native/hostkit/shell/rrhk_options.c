@@ -182,6 +182,9 @@ static RrhkOptionRows option_rows(void) {
     /* 1.7.6: on a machine with a graphics page (D14), F3 opens that page (the filter is one of its rows): the row says so */
     if (m->gfx_option_count > 0) rrhk_option_row_icon(&d, SDL_SCANCODE_F3, RR_ICON_ROW_GRAPHICS, "%s", rr_tr("F3 Graphics"));
     else rrhk_option_row(&d, SDL_SCANCODE_F3, "F3 Filter: %s", rr_option_filter_name(rrhk.filter));
+    /* D35: the looks' styles, kept per machine: the CRT's (on the graphics page where there is one), and a handheld's LCD */
+    if (m->gfx_option_count <= 0) rrhk_option_row_icon(&d, RRHK_KEY_CRT_STYLE, RR_ICON_ROW_FILTER, "CRT style: %s", rrhk_crt_style_name(rrhk.crt_style));
+    if (m->lcd_screen) rrhk_option_row_icon(&d, RRHK_KEY_LCD_STYLE, RR_ICON_ROW_FILTER, "LCD style: %s", rrhk_lcd_style_name(rrhk.lcd_style));
     rrhk_option_row(&d, SDL_SCANCODE_F4, "F4 Display: %s", rr_option_mode_name(rrhk.fullscreen));
     /* 1.7.6: on a machine whose games may draw a widescreen picture, this game's screen format */
     if (m->widescreen) rrhk_option_row_icon(&d, RRHK_KEY_WIDESCREEN, RR_ICON_ROW_WIDESCREEN, "Screen format: %s", rrhk.widescreen ? "16:9" : "4:3");
@@ -333,6 +336,15 @@ void rrhk_combo_value(char *out, size_t size, int index, bool gamepad) { rr_comb
 const char *rrhk_combo_label(int index) { return rr_combo_label(index); }
 const char *rrhk_combo_hint(int index, bool gamepad) { return rr_combo_hint(index, gamepad); }
 const char *rrhk_filter_name(int filter) { return rr_option_filter_name(filter); }
+/* D35: the stored ids (scanlines.h): CRT 0 soft, 1 sharp, 2 arcade; LCD 0 real screen, 1 grid */
+const char *rrhk_crt_style_name(int style) {
+    static const char *const names[RR_CRT_STYLES] = {"Soft", "Sharp", "Arcade"};
+    return rr_tr(names[style >= 0 && style < RR_CRT_STYLES ? style : 0]);
+}
+const char *rrhk_lcd_style_name(int style) {
+    static const char *const names[RR_LCD_STYLES] = {"Real screen", "Grid"};
+    return rr_tr(names[style >= 0 && style < RR_LCD_STYLES ? style : 0]);
+}
 const char *rrhk_display_name(int mode) { return rr_option_mode_name(mode); }
 void rrhk_menu_page_header(const RrhkMenuCtx *ctx, const char *title) {
     rr_menu_page_header(ctx->renderer, ctx->ox, ctx->oy, ctx->unit, title, rrhk_pages_index(), rrhk_pages_count());

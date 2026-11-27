@@ -384,7 +384,7 @@ static void full_script(void) {
         break;
     case 23:
         CHECK(ui->menu == RRHK_MENU_GRAPHICS && ui->gfx_row == 0);
-        CHECK(rrhk_graphics_rows() == 4);
+        CHECK(rrhk_graphics_rows() == 5);      /* two options, Filter, CRT style (D35), Restore defaults */
         frames_mark = frames;
         key(SDL_SCANCODE_RIGHT);
         break;
@@ -403,14 +403,16 @@ static void full_script(void) {
         break;
     case 27:
         CHECK(ui->filter == 0 && ini(L"Test3D.Video", L"filter") == 0);
-        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN);   /* Scale2x, then Restore defaults */
+        /* Scale2x; the CRT style row: soft -> sharp (D35); then Restore defaults (the machine's style again) */
+        key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RIGHT); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN);
         break;
     case 28:
         CHECK(ui->gfx[0] == 0 && ui->gfx[1] == 0 && ui->filter == 0);
+        CHECK(ui->crt_style == 0 && ini(L"Test3D.Video", L"crt_style") == 0);   /* changed, then put back and kept */
         CHECK(ini(L"Test3D.Video", L"resolution") == 0 && ini(L"Test3D.Video", L"dither") == 0 && ini(L"Test3D.Video", L"filter") == 0);
         CHECK(apply_count == 6 && applied[4].option == 0 && applied[4].value == 0 && applied[5].option == 1 && applied[5].value == 0);
         CHECK(frames == frames_mark);      /* the machine did not run while the page was open */
-        key(SDL_SCANCODE_UP); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RIGHT);   /* back to row 0: 2x */
+        key(SDL_SCANCODE_UP); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_UP); key(SDL_SCANCODE_RIGHT);   /* back to row 0: 2x */
         key(SDL_SCANCODE_F3);              /* F3 closes it */
         break;
     case 29:
@@ -1254,7 +1256,10 @@ static void widescreen_script(void) {
         key(SDL_SCANCODE_RETURN);   /* the options tile: before Display mode (1.9.0), Restart and Quit */
         break;
     }
-    case 1: CHECK(ui->menu == RRHK_MENU_OPTIONS); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN); break;
+    case 1:     /* F3 Filter, CRT style (D35: this run has no graphics page), F4 Display, then Screen format */
+        CHECK(ui->menu == RRHK_MENU_OPTIONS);
+        key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_DOWN); key(SDL_SCANCODE_RETURN);
+        break;
     case 2: {
         CHECK(ui->widescreen == 1 && !strcmp(ui->status, "16:9"));
         CHECK(ini(L"Test3D.Widescreen", L"Capabilities") == 1);

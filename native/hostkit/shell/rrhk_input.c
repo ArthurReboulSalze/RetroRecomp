@@ -181,13 +181,22 @@ void rrhk_load_bindings(void) {
      * bindings saved by the user. W must mean W on AZERTY and QWERTY alike. */
     default_letters(m);
     rrhk_settings_path();
+    /* D35: the looks' styles start from the machine's (an arcade board's monitor) and the real screen */
+    const int crt_default = m->crt_style >= 0 && m->crt_style < RR_CRT_STYLES ? m->crt_style : RR_CRT_SOFT;
+    rrhk.crt_style = crt_default; rrhk.lcd_style = RR_LCD_REAL;
     if (!rrhk.ini_file[0]) { drop_shadowed_extras(m); return; }
     rr_display_load(rrhk.read_file, rrhk.video_section, &rrhk.filter, &rrhk.fullscreen);
+    {   /* an unknown value is the default */
+        const int crt = rr_ini_int(rrhk.video_section, L"crt_style", crt_default, rrhk.read_file);
+        const int lcd = rr_ini_int(rrhk.video_section, L"lcd_style", RR_LCD_REAL, rrhk.read_file);
+        rrhk.crt_style = crt >= 0 && crt < RR_CRT_STYLES ? crt : crt_default;
+        rrhk.lcd_style = lcd >= 0 && lcd < RR_LCD_STYLES ? lcd : RR_LCD_REAL;
+    }
     if (m->settings_loaded) m->settings_loaded(&rrhk);
     /* The stretched mode (1.7.4) is only ever written in the kit's key: a machine that reads its former keys in settings_loaded
      * and knows three modes (Master System, Game Gear, Game Boy) keeps it all the same. */
     if (rr_ini_int(rrhk.video_section, L"display_mode", -1, rrhk.read_file) == 3) rrhk.fullscreen = 3;
-    /* D35: the LCD grid is a handheld's; a machine without an LCD screen shows sharp pixels for it */
+    /* D35: the LCD look is a handheld's; a machine without an LCD screen shows sharp pixels for it */
     if (rrhk.filter == RR_FILTER_LCD && !m->lcd_screen) rrhk.filter = 0;
     wchar_t sec[64], entry[48];
     /* A stored key 0 or button -1 is "no binding" on every machine: F2 writes it when a swap leaves an action without its key
@@ -765,6 +774,23 @@ void rrhk_widescreen_toggle(void) {
     swprintf(section, 80, L"%ls.Widescreen", m->ini_section);
     if (!widescreen_key[0] || !rrhk_write_ready() || !rr_ini_set(section, widescreen_key, rrhk.widescreen ? L"1" : L"0", rrhk.ini_file))
         snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Config unavailable"));
+}
+
+/* D35: the CRT or LCD style's next value, named and kept in [<Console>.Video] crt_style / lcd_style. */
+void rrhk_look_style_next(bool lcd, int step) {
+    int *value = lcd ? &rrhk.lcd_style : &rrhk.crt_style;
+    const int count = lcd ? RR_LCD_STYLES : RR_CRT_STYLES;
+    *value = ((*value + step) % count + count) % count;
+    rrhk_notice(lcd ? rrhk_lcd_style_name(*value) : rrhk_crt_style_name(*value), 1800);
+    if (!rrhk_write_ready() || !rr_display_save(rrhk.ini_file, rrhk.data_dir, rrhk.video_section, lcd ? L"lcd_style" : L"crt_style", *value))
+        snprintf(rrhk.status, sizeof rrhk.status, "%s", rr_tr("Config unavailable"));
+}
+
+/* The style of the look the filter shows (rrhk_video.c): the CRT style, the panel of the LCD's real screen, -1 for the grid. */
+int rrhk_look_style(void) {
+    const RrhkMachine *m = rrhk.machine;
+    if (rrhk.filter == RR_FILTER_LCD) return rrhk.lcd_style == RR_LCD_GRID ? -1 : m->lcd_panel ? m->lcd_panel() : RR_PANEL_TFT;
+    return rrhk.crt_style;
 }
 
 int rrhk_gfx_value(int option) { return option >= 0 && option < RRHK_MAX_GFX_OPTIONS ? rrhk.gfx[option] : 0; }

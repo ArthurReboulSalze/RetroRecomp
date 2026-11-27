@@ -30,18 +30,33 @@ RGBA mixing, boundaries and these workloads without a ROM or window.
 ## CRT and LCD looks
 
 Since the release after 1.9.1, F3 continues after **xBR smooth** with **CRT flat** and **CRT curved**, and on the
-handhelds (Game Boy, Game Boy Color, Game Boy Advance, Game Gear) with **LCD grid** (host kit decision
+handhelds (Game Boy, Game Boy Color, Game Boy Advance, Game Gear) with **LCD screen** (host kit decision
 [D35](HOST_KIT.md#d35)). They are drawn without a shader, with the same calls on every graphics driver:
 
 - **CRT flat**: one beam per line of the console with dark gaps between them, a phosphor mask (aperture grille), a
   little glow and a light vignette.
 - **CRT curved**: the same picture bent like a tube screen, with rounded corners and a slot mask.
-- **LCD grid**: each pixel of the handheld in its own cell with a thin dark gap, at three screen pixels a pixel or more.
+- **LCD screen**: each pixel of the handheld in its own cell, at three screen pixels a pixel or more (see its styles below).
 
 With a graphics card (Direct3D 11 on Windows, OpenGL on Linux) the two CRT looks are drawn by the card with CRTS,
 Timothy Lottes' public-domain CRT shader: real beams that widen on bright parts, a softer horizontal blend, and a tone
 map that keeps the picture almost as bright as without the look. Without a card, or under Variable refresh (Direct3D 12),
 the same two looks are drawn the simpler way described here.
+
+Each look has a **style**, chosen on the options page (F2, then Options) and kept for each console:
+
+- **CRT style**: **Soft** (the look above), **Sharp** (much less horizontal blur, a lighter mask: pixel edges stay crisp
+  between the lines) or **Arcade** (a cabinet monitor: thinner beams with deeper gaps, a strong slot mask, more colour and
+  light, a slighter curve). The arcade boards (CPS-1, CPS-1.5, CPS-2, Neo Geo) start in the arcade style, the others in soft.
+  On a 3D machine the row is on the graphics page.
+- **LCD style**, on the handhelds: **Real screen** (the default) or **Grid** (the cells above). The real screen imitates
+  the handheld's own panel: on the Game Boy, a dot matrix whose gaps show a pale screen behind dark dots; on the Game Boy
+  Color and Game Boy Advance, a colour TFT with a dark matrix and red, green and blue columns in each pixel; on the Game
+  Gear, a softer colour screen. Each keeps part of the last picture in the next, as those slow screens did: moving things
+  leave a short trail, and games that flicker sprites to show them half-transparent look as intended. The LCD looks are
+  drawn the same way on every graphics driver.
+
+F3 names the look with its style, for example « CRT curved - Arcade ».
 
 The CRT looks count the console's own lines, not the rows of a raised internal resolution. Above 300 lines a frame
 (interlaced modes, 31 kHz monitors) they draw no gaps, as those screens showed none. Without a graphics card (SDL's

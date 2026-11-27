@@ -178,8 +178,10 @@ class Game:
         env.pop('SESSION_FAKE_PASS_TILE', None)
         env.pop('SESSION_FAKE_LINK', None)
         env.pop('SESSION_FAKE_FILTER', None)
+        env.pop('SESSION_FAKE_CRT_STYLE', None)
         if look:
             env['SESSION_FAKE_FILTER'] = str(look)
+            env['SESSION_FAKE_CRT_STYLE'] = str(ARCADE_STYLE)   # the strongest style (D35): presentation only all the same
         if link:
             env['SESSION_FAKE_LINK'] = '1'
         if pass_tile:
@@ -389,6 +391,7 @@ def rollback_match(executable: Path, out: Path, look: int) -> int:
 
 
 CURVED_CRT = 5     # native/display_settings.h RR_FILTER_CRT_CURVED (HOST_KIT D35)
+ARCADE_STYLE = 2   # native/scanlines.h RR_CRT_ARCADE: the look is shown in the arcade style
 
 
 def scenarios(executable: Path, out: Path) -> list[str]:
@@ -424,7 +427,7 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     for look in (0, CURVED_CRT):
         corrections = rollback_match(executable, out, look)
         passed.append(f'rollback: {corrections} corrections of 6 frames, no frame of the match with side effects, digests equal'
-                      + (' (with the curved CRT look on: the same)' if look else ''))
+                      + (' (with the curved CRT look on, arcade style: the same)' if look else ''))
 
     # 4. A guest: no side effects at all (its cartridge save is never written).
     game = Game(executable, out)

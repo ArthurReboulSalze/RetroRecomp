@@ -8,9 +8,12 @@
  *   rr_in   = input grid: width, height (console lines), 1/width, 1/height
  *   rr_out  = output rectangle: width, height, 1/width, 1/height
  *   rr_map  = the picture's share of its texture (x, y), warp (x, y)
- *   rr_look = thin (0.5: no gaps), blur (negative), mask dark level, mask kind (1 grille, 3 shadow) */
+ *   rr_look = thin (0.5: no gaps), blur (negative), mask dark level, mask kind (1 grille, 3 shadow)
+ *   rr_more = the colour ratio's exponent (CRTS' saturation: 1 = none), the mask's cell size in output pixels, the light's
+ *             gain after the mask (1 = none; ours), unused
+ * The numbers come from the CRT style (scanlines.h rr_crt_styles): soft, sharp, arcade. */
 static const char rrhk_crts_hlsl_head[] =
-    "cbuffer RrLook : register(b0) { float4 rr_in; float4 rr_out; float4 rr_map; float4 rr_look; };\n"
+    "cbuffer RrLook : register(b0) { float4 rr_in; float4 rr_out; float4 rr_map; float4 rr_look; float4 rr_more; };\n"
     "Texture2D rr_picture : register(t0);\n"
     "SamplerState rr_sampler : register(s0);\n"
     "#define RR_FETCH(uv) rr_picture.SampleLevel(rr_sampler, (uv) * rr_map.xy, 0).rgb\n";
@@ -20,7 +23,7 @@ static const char rrhk_crts_glsl_head[] =
     "#define float2 vec2\n#define float3 vec3\n#define float4 vec4\n#define frac fract\n"
     "#define saturate(x) clamp((x), 0.0, 1.0)\n"
     "uniform sampler2D rr_picture;\n"
-    "uniform vec4 rr_in; uniform vec4 rr_out; uniform vec4 rr_map; uniform vec4 rr_look;\n"
+    "uniform vec4 rr_in; uniform vec4 rr_out; uniform vec4 rr_map; uniform vec4 rr_look; uniform vec4 rr_more;\n"
     "varying vec2 rr_uv;\n"
     "#define RR_FETCH(uv) texture2D(rr_picture, (uv) * rr_map.xy).rgb\n";
 
@@ -94,10 +97,11 @@ static const char rrhk_crts_body[] =
     "  scanA *= pixT; scanB *= pixT;\n"
     "  float3 color = (colA0 * pix0 + colA1 * pix1 + colA2 * pix2 + colA3 * pix3) * scanA +\n"
     "                 (colB0 * pix0 + colB1 * pix1 + colB2 * pix2 + colB3 * pix3) * scanB;\n"
-    "  color *= rr_mask(ipos, mask, kind);\n"
+    "  color *= rr_mask(floor(ipos / rr_more.y) + float2(0.5, 0.5), mask, kind) * rr_more.z;\n"
     "  float4 tone = rr_tone(thin, mask, kind);\n"
     "  float peak = max(1.0 / (256.0 * 65536.0), max(color.r, max(color.g, color.b)));\n"
     "  float3 ratio = color * (1.0 / peak);\n"
+    "  ratio = pow(ratio, float3(rr_more.x, rr_more.x, rr_more.x));\n"   /* CRTS_SATURATION, contrast 1 */
     "  peak = peak * (1.0 / (peak * tone.y + tone.z));\n"
     "  return rr_to_srgb(ratio * peak);\n"
     "}\n";

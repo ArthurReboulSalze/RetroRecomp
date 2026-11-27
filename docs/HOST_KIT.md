@@ -740,6 +740,32 @@ X68000 too, without asking again**.
     and only to French). Open: the mask and frame overlays are made on the CPU at the output's size when it changes (about
     8 million texels at 4K, one hitch per resize); a small tiled mask would avoid it. The pass compiles its shaders on the first
     CRT frame (a short hitch, once a run); compiling them when the run opens would avoid it.
+  * **Styles** (27 November 2026, after the players' first shots on Discord: a sharper CRT, an arcade monitor, handheld screens
+    closer to the real ones). F3's list keeps its length; each look gets a style, kept per machine in `[<Console>.Video]`:
+    * **CRT style** (`crt_style`: 0 soft, 1 sharp, 2 arcade), a row of the options page after « F3 Filter » (on the graphics
+      page of the 3D machines, after its Filter row; Restore defaults puts back the machine's). One set of numbers per style in
+      `native/scanlines.h` `rr_crt_styles`, read by both stages. **Soft** is the look as merged. **Sharp**: CRTS' blur -6
+      instead of -2.5 and a lighter mask; stage 1 draws each line at a whole multiple of the picture's width before the
+      linear stretch (« sharp bilinear ») with less glow. **Arcade**: thinner beams with deeper gaps, a strong shadow or slot
+      mask whose cells grow by one pixel per 1,000 rows on tall screens, CRTS' own saturation option (ratio exponent 1.15),
+      a gain of 1.3 after the mask (ours, before the tone map) and in stage 1 a larger boost and glow, and a slighter curve
+      (0.018, 0.024). A machine names the style a player starts from (`RrhkMachine.crt_style`): arcade on the CPS-1, CPS-1.5
+      and CPS-2 adapter and on the Neo Geo, soft elsewhere. An unknown value is the machine's default.
+    * **LCD style** (`lcd_style`: 0 real screen, 1 grid), a row on the handhelds only. Filter 6 is now named « LCD screen ».
+      **Real screen** draws the machine's panel (`RrhkMachine.lcd_panel`, `RRHK_PANEL_*`): a colour TFT (Game Boy Color,
+      Game Boy Advance; the default when a machine names none) with a dark matrix and R G B columns in each cell; the Game
+      Gear's passive STN, softer; the Game Boy's dot matrix (a Color game on the Game Boy Color profile gets the TFT), whose gaps
+      show a pale olive screen behind dark dots, whatever palette F5 chose. Each panel responds slowly: the picture shown
+      keeps a share of the last one shown (TFT 1/4, STN 0.45, DMG 1/2), once per game frame (`rrhk_video.c` `lcd_response`,
+      a buffer of the kit's; the machine's picture is only read). It is drawn by stage 1 on every renderer (an overlay per
+      size and a boost), so the LCD looks need no pass of their own. The grid is unchanged and has no slow response.
+    * F3's notice names the look with its style (« CRT curved - Arcade »). Presentation only, as before: the session
+      self-test now runs its look scenario in the arcade style. `RETRORECOMP_HOST_TEST_CRT_STYLE` and `_LCD_STYLE` set a
+      hidden-window test run's styles. Checks: `tools/crt_look_selftest.py` (the soft numbers are the merged ones, each style
+      its own picture, the panels' texels, the slow response reaching a still picture exactly) and
+      `tools/crt_shader_selftest.py` (every style on both stages and every renderer; the sharp style keeps more of one-pixel
+      stripes, the arcade mask is stronger, the real screen leaves the last picture on a black frame, the grid does not).
+      No new third-party code: the styles, panels and response are ours (MIT); the saturation option is CRTS'.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

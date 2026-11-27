@@ -32,6 +32,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <http://unlicense.org/>
 
+Retro-Recomp's port keeps CRTS' 8-tap filter, warp, masks, tone map and saturation option. The numbers each CRT style
+hands it (soft, sharp, arcade: `native/scanlines.h`), the mask's larger cells on tall screens and the gain after the mask
+are Retro-Recomp's own (MIT), as are the LCD looks.
+
 ## Why this shader
 
 Every game of every machine on the host kit carries the same looks. Many of the

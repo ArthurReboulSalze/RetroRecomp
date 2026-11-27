@@ -173,6 +173,7 @@ const RrhkMachine *rrhk_adapter(void) {
     if (!machine.actions) {
         machine = (RrhkMachine){
             .ini_section = RR16_SECTION, .console_name = cps1_is_cps2() ? "CPS-2" : RR16_CONSOLE,
+            .crt_style = RRHK_CRT_ARCADE,          /* D35: an arcade monitor's look when the CRT is chosen */
             .table_players = 4, .players = players,
             .actions = actions, .action_count = ACTIONS,
             .up = UP, .down = DOWN, .left = LEFT, .right = RIGHT, .start = START,

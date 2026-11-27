@@ -371,6 +371,11 @@ static void session_begin(uint64_t clock) {
 }
 #endif
 
+#ifdef RETRO_GAME_GEAR
+/* D35: the Game Gear's real screen for the LCD look: a passive colour STN. */
+static int gg_panel(void) { return RRHK_PANEL_STN; }
+#endif
+
 const RrhkMachine *rrhk_adapter(void) {
     static RrhkPage page;
     if (!machine.actions) {
@@ -381,7 +386,7 @@ const RrhkMachine *rrhk_adapter(void) {
         page.available = phaser_page_available;
         machine = (RrhkMachine){
 #ifdef RETRO_GAME_GEAR
-            .ini_section = SECTION, .console_name = "Game Gear", .start = START, .lcd_screen = true,
+            .ini_section = SECTION, .console_name = "Game Gear", .start = START, .lcd_screen = true, .lcd_panel = gg_panel,
 #else
             .ini_section = SECTION, .console_name = "Master System", .start = PAUSE,
 #endif

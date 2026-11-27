@@ -110,6 +110,30 @@ static void grow_store(RrhkRun *run) {
     run->tex = texture;
 }
 
+_Static_assert(RRHK_CRT_ARCADE == RR_CRT_ARCADE && RRHK_CRT_SHARP == RR_CRT_SHARP && RRHK_PANEL_DMG == RR_PANEL_DMG &&
+               RRHK_PANEL_STN == RR_PANEL_STN && RRHK_PANEL_TFT == RR_PANEL_TFT, "hostkit.h and scanlines.h name the same looks");
+
+/* D35: the LCD's real screen responds slowly: the picture shown is the machine's with `keep` (of 256) of the last one shown left
+ * in it, made once per game frame (a menu's redraw shows the same). The machine's picture is only read. Its own copy if the
+ * buffer cannot be had (the picture then shows without the response). */
+static const uint32_t *lcd_response(RrhkRun *run, const uint32_t *pixels, int width, int height, int pitch, int keep) {
+    const size_t need = (size_t)pitch * (size_t)height;
+    if (need > run->ghost_size) {
+        uint32_t *grown = (uint32_t *)SDL_realloc(run->ghost, need * sizeof *grown);
+        if (!grown) { run->ghost_valid = false; return pixels; }
+        run->ghost = grown; run->ghost_size = need;
+    }
+    const bool same = run->ghost_valid && run->ghost_w == width && run->ghost_h == height && run->ghost_pitch == pitch;
+    if (same && run->ghost_frame == run->frame) return run->ghost;
+    for (int y = 0; y < height; ++y) {
+        const uint32_t *in = pixels + (size_t)y * pitch;
+        uint32_t *out = run->ghost + (size_t)y * pitch;
+        for (int x = 0; x < width; ++x) out[x] = rr_lcd_ghost_pixel(in[x], same ? out[x] : in[x], same ? keep : 0);
+    }
+    run->ghost_w = width; run->ghost_h = height; run->ghost_pitch = pitch; run->ghost_frame = run->frame; run->ghost_valid = true;
+    return run->ghost;
+}
+
 /* Draw the last picture, with the filter and the reticle, into the back buffer. */
 void rrhk_present_picture(RrhkRun *run) {
     const RrhkMachine *m = run->machine;
@@ -123,12 +147,17 @@ void rrhk_present_picture(RrhkRun *run) {
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderClear(ren);
         return;
     }
+    /* D35: the style of the look (the CRT style; the LCD's panel, -1 for its grid), and the real screen's slow response */
+    const int style = rrhk_look_style();
+    const int keep = rrhk.filter == RR_FILTER_LCD && style >= 0 ? rr_lcd_panel(style)->ghost : 0;
+    if (keep) pixels = lcd_response(run, pixels, width, height, m->pixel_pitch ? m->pixel_pitch() : m->max_width, keep);
+    else run->ghost_valid = false;
     /* D35 stage 2: a CRT look on Direct3D 11 or OpenGL is drawn by the graphics card from the machine's own picture (its
      * pass uploads it); otherwise, or when the pass is unavailable, the stage-1 look below */
     if ((rrhk.filter == RR_FILTER_CRT_FLAT || rrhk.filter == RR_FILTER_CRT_CURVED) && !run->software && !run->crt_pass_off) {
         const SDL_Rect dst = rrhk_game_rect(ren);
         const int rows = m->pixel_pitch ? m->pixel_pitch() : m->max_width;     /* the picture's row pitch, in pixels */
-        if (rrhk_crt_pass_draw(ren, pixels, width, height, rows, &dst, m->raster_height(), rrhk.filter == RR_FILTER_CRT_CURVED)) {
+        if (rrhk_crt_pass_draw(ren, pixels, width, height, rows, &dst, m->raster_height(), rrhk.filter == RR_FILTER_CRT_CURVED, style)) {
             rrhk_pointer_draw(ren, &dst);
             return;
         }
@@ -161,9 +190,9 @@ void rrhk_present_picture(RrhkRun *run) {
     /* D35: the CRT and LCD looks draw the picture themselves; one that cannot (a size the LCD grid does not fit, no texture)
      * leaves it to the plain copy */
     const int look = rrhk.filter == RR_FILTER_CRT_FLAT ? RR_LOOK_CRT_FLAT : rrhk.filter == RR_FILTER_CRT_CURVED ? RR_LOOK_CRT_CURVED :
-                     rrhk.filter == RR_FILTER_LCD ? RR_LOOK_LCD : -1;
+                     rrhk.filter == RR_FILTER_LCD ? (style < 0 ? RR_LOOK_LCD : RR_LOOK_LCD_REAL) : -1;
     if (smooth) SDL_RenderCopy(ren, smooth, NULL, &dst);
-    else if (look < 0 || !rr_look_draw(ren, &run->look, run->tex, &source, &dst, m->raster_height(), look, run->software))
+    else if (look < 0 || !rr_look_draw(ren, &run->look, run->tex, &source, &dst, m->raster_height(), look, run->software, style))
         SDL_RenderCopy(ren, run->tex, &source, &dst);
     /* 1.7.6: one scanline per line of the console (raster_height), not per row of a raised internal resolution (visible_height):
      * a 240-line game drawn at 2x or 4x keeps its 240 dark lines, which show on any screen of 480 rows or more */
