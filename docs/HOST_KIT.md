@@ -720,6 +720,13 @@ X68000 too, without asking again**.
       retried in that run. The LCD grid stays stage 1's.
     * **Presentation only**, as stage 1. Notice: `licenses/crt-lottes.md`, which also gives why no GPL shader and why not
       crt-geom-mini.
+    * **Checks**: `tools/crt_shader_selftest.py`, hidden test-run windows. It runs the pass on Direct3D 11 and OpenGL, and
+      stage 1's three looks on Direct3D 11, Direct3D 12 and OpenGL (`RETRORECOMP_HOST_TEST_CRT_PASS=0` turns the pass off for
+      a test run only). It checks the picture is there and stays inside the game's rectangle, the curved corner is black, the
+      brightness holds, and the renderers agree with each other.
+  * Since stage 2, F3's notice names every filter in the five game languages (before, only « Sharp pixels » was translated,
+    and only to French). Open: the mask and frame overlays are made on the CPU at the output's size when it changes (about
+    8 million texels at 4K, one hitch per resize); a small tiled mask would avoid it.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

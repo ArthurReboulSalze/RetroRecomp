@@ -125,7 +125,7 @@ void rrhk_present_picture(RrhkRun *run) {
     }
     /* D35 stage 2: a CRT look on Direct3D 11 or OpenGL is drawn by the graphics card from the machine's own picture (its
      * pass uploads it); otherwise, or when the pass is unavailable, the stage-1 look below */
-    if ((rrhk.filter == RR_FILTER_CRT_FLAT || rrhk.filter == RR_FILTER_CRT_CURVED) && !run->software) {
+    if ((rrhk.filter == RR_FILTER_CRT_FLAT || rrhk.filter == RR_FILTER_CRT_CURVED) && !run->software && !run->crt_pass_off) {
         const SDL_Rect dst = rrhk_game_rect(ren);
         const int rows = m->pixel_pitch ? m->pixel_pitch() : m->max_width;     /* the picture's row pitch, in pixels */
         if (rrhk_crt_pass_draw(ren, pixels, width, height, rows, &dst, m->raster_height(), rrhk.filter == RR_FILTER_CRT_CURVED)) {

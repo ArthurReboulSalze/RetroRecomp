@@ -67,7 +67,8 @@ static RrhkMachine probe = {
     .max_width = W, .max_height = H, .frame_seconds = 1.0 / 60.0,
     .reset = reset, .run_frame = run_frame, .pause = pause_machine, .pixels = pixels,
     .visible_width = width, .visible_height = height, .raster_height = height, .display_width = width,
-    .audio = audio, .interpreted = zero, .audio_interpreted = zero, .before_present = before_present};
+    .audio = audio, .interpreted = zero, .audio_interpreted = zero, .before_present = before_present,
+    .lcd_screen = true};             /* so the LCD grid (6) can be asked too */
 const RrhkMachine *rrhk_adapter(void) { return &probe; }
 
 int main(void) {

@@ -403,8 +403,7 @@ void rrhk_poll_events(RrhkRun *run) {
         else if (key == SDL_SCANCODE_F3 && m->gfx_option_count > 0) toggle_graphics();
         else if (key == SDL_SCANCODE_F3) {
             if (!filter_texture(run, rr_menu_next_filter(rrhk.filter, m->lcd_screen))) { run->running = false; break; }
-            const char *labels[] = {rrhk_tr("Sharp pixels", "Pixels nets"), "xBR smooth", "Scale2x", "Scanlines"};
-            rrhk_notice(rrhk.filter >= 0 && rrhk.filter < 4 ? labels[rrhk.filter] : rrhk_filter_name(rrhk.filter), 1800);
+            rrhk_notice(rrhk_filter_name(rrhk.filter), 1800);     /* the filter's name in the five game languages */
             save_filter();
         } else if (key == RRHK_KEY_RUMBLE && from_row) {
             rrhk_toggle_rumble();

@@ -8,6 +8,7 @@
 #include <string.h>
 #include "platform_io.h"
 #include "retro_menu.h"
+#include "display_settings.h"
 #include "retro_keyboard.h"
 #include "audio_filter.h"
 #define RR_OPTIONS_MENU 5
@@ -501,7 +502,9 @@ static void rr_option_shared_rows(RrOptionRows *d) {
 }
 static const char *rr_option_filter_name(int filter) {
     static const char *const names[] = {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines", "CRT flat", "CRT curved", "LCD grid"};
-    return rr_tr(names[filter >= 0 && filter < 7 ? filter : 0]);
+    typedef char rr_one_name_per_filter[sizeof names / sizeof names[0] == RR_FILTERS ? 1 : -1];   /* C and C++ alike */
+    (void)sizeof(rr_one_name_per_filter);
+    return rr_tr(names[filter >= 0 && filter < RR_FILTERS ? filter : 0]);
 }
 static const char *rr_option_mode_name(int mode) {
     static const char *const names[] = {"Windowed", "Pixel perfect", "Fit to screen", "Stretched"};

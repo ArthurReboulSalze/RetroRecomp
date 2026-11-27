@@ -48,6 +48,7 @@ typedef struct RrhkRun {
     RrScanlineMask scanlines;
     RrXbr xbr;
     RrLook look;                   /* the CRT and LCD looks' overlays and targets (HOST_KIT D35) */
+    bool crt_pass_off;             /* a hidden-window test run asked for the stage-1 looks on the graphics card (D35's checks) */
     bool software;                 /* SDL's software renderer (no graphics card, or the dummy driver of the converter's checks): the CRT is drawn light */
     /* One iteration is begin (events, state requests, pads, the machine's frame) then end (sound, picture, pacing); a guest
      * that owns the loop runs between the end of one and the begin of the next. What the two halves share: */
