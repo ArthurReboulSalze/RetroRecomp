@@ -503,10 +503,13 @@ no export is rebuilt or rediscovered. The role stamps of all 27 machines were co
 
 Found on 27 November 2026 by running the detection of the window's drop and of `batch --system auto` over a player's whole library
 (12,347 cartridge, disk and disc files) and over his frontend's bios folder (1,503 files). What changes for a player:
-- **MSX1 games are found.** A loose `.rom` (or the one `.rom` of a ZIP) is an MSX cartridge when the BIOS would take it: an "AB"
-  header with an INIT pointer below C000h. The sniff used to want every routine pointer in range and the reserved bytes empty, which
-  refused 77 of 439 MSX1 zips (Hydlide 3 and many others write text over those fields): they said « Unknown console ». 76 of the 77
-  are found now; R-Type (its header is in the last bank of a 384 KiB image) still needs MSX chosen in the console menu.
+- **76 more MSX1 cartridges are recognised by content when nothing else says the machine.** A loose `.rom` (or the one `.rom` of a
+  ZIP) is an MSX cartridge when the BIOS would take it: an "AB" header with an INIT pointer below C000h. The sniff used to want
+  every routine pointer in range and the reserved bytes empty, so a file dropped from outside an `msx2` folder, or with the console
+  on Automatic, said « Unknown console » for 77 of the 439 MSX1 zips of one library (Hydlide 3 and many others write text over those
+  fields); 76 are recognised now. The path with the console chosen, or from an `msx2` folder (`read_cartridge`), was not affected
+  (438 of 439 before and after). R-Type is not converted: its mapper is not supported (384 KiB, its 4000h page fixed to a late bank,
+  its 8000h page switched by writes to 7000h-7FFFh), and its "AB" header, at 3C000h, is not where the BIOS looks.
 - **Firmware is refused, with its reason, instead of converted as a game.** The Mega-CD boot ROM (Mega Drive header), the BS-X
   BIOS, the Super Game Boy cartridges and the Sufami Turbo base (Super Nintendo), the PC Engine CD System Card dropped as a `.pce`, and
   the MSX system ROMs (disk, MSX-MUSIC, BASIC and language extensions, RS-232C, machines' whole firmware) give a sentence that says
