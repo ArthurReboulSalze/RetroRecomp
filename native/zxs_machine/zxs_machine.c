@@ -227,7 +227,7 @@ unsigned zxs_contend_io(ZxsMachine *m, uint64_t t, uint16_t port)
 
 uint8_t zxs_floating_bus(const ZxsMachine *m)
 {
-    const uint64_t frame = m->t_frame, t = m->io_t + m->io_wait + 3;
+    const uint64_t frame = m->t_frame, t = m->io_t + m->io_wait + ZXS_FLOATING_SAMPLE;
     const uint64_t in_frame = t >= m->frame_start ? (t - m->frame_start) % frame : (frame - (m->frame_start - t) % frame) % frame;
     const uint64_t first = m->model == ZXS_128K ? 14368 : 14347;
     if (in_frame < first || in_frame >= first + 192u * (uint64_t)m->t_line)

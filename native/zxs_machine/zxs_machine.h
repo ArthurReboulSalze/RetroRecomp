@@ -54,7 +54,7 @@ typedef struct {
     uint64_t cycles;               /* T-states since reset */
     uint64_t frame_start;          /* the cycle the current frame began at */
     uint64_t io_t;                 /* the last I/O cycle the chain's evaluator walked: its start (CPU cycle) and its */
-    unsigned io_wait;              /* contention; the floating bus is sampled 3 T-states into it (zxs_floating_bus) */
+    unsigned io_wait;              /* contention; the floating bus is sampled at the cycle's end (zxs_floating_bus) */
     uint64_t frames;
     unsigned line;                 /* the next line of the frame to draw */
     uint8_t picture[ZXS_HEIGHT][ZXS_WIDTH];      /* colour indices 0-15 (8-15 bright) */
@@ -101,9 +101,12 @@ int zxs_contended(const ZxsMachine *m, uint16_t address);
 unsigned zxs_contend_memory(const ZxsMachine *m, uint64_t t, uint16_t address);
 unsigned zxs_contend_io(ZxsMachine *m, uint64_t t, uint16_t port);
 /* The floating bus: what an unattached port reads, the byte the ULA is fetching at the moment the I/O cycle the evaluator last
- * walked samples the bus (its start, its contention, then 3 T-states): in each 8 T-states of the first 128 of a paper line,
- * the bitmap byte, the attribute, the next bitmap byte, the next attribute, then FFh four times; FFh outside the paper. The
- * first fetch is at T-state 14347 of the frame on the 48K and 14368 on the 128K (Ramsoft's floating bus guide). */
+ * walked samples the bus (its start, its contention, then ZXS_FLOATING_SAMPLE T-states, the cycle's end): in each 8 T-states
+ * of the first 128 of a paper line, the bitmap byte, the attribute, the next bitmap byte, the next attribute, then FFh four
+ * times; FFh outside the paper. The first fetch is at T-state 14347 of the frame on the 48K and 14368 on the 128K (Ramsoft's
+ * floating bus guide). The sample at the cycle's end follows Clock Signal and MAME 0.289: with it, Arkanoid's raster loop and
+ * paddle match MAME frame for frame, where 3 T-states (the guide's reading) ran its game loop twice a frame. */
+#define ZXS_FLOATING_SAMPLE 4
 uint8_t zxs_floating_bus(const ZxsMachine *m);
 int zxs_rom_bank(const ZxsMachine *m);
 /* Up to `max` mono 16-bit samples at ZXS_AUDIO_RATE. */
