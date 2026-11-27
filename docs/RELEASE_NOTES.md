@@ -35,6 +35,14 @@ again once; its cartridge saves and quick-state format are not changed by this w
   the window comes back to the front. While the files are read, the window keeps its turn.
 - **Favourites are instant.** Marking several games saves the collection once, not once per game (100 games took about
   ten seconds).
+- **A deleted game leaves Compiled Games.** Once its executable is deleted, the next scan, Rescan or return to the
+  window removes the game from the list. Before, it stayed greyed until a full scan. A game stays greyed only while its
+  drive or network share cannot be reached, and comes back with it.
+- **Compiled Games: Delete game…** (right-click, or the Delete key). It deletes the selected games' executables and
+  conversion reports after a dialog that lists them, into the Recycle Bin or the trash. The dialog says when there is none,
+  for example on a network drive. The saves stay unless « Also delete the saves » is ticked. The ROM, the library and
+  the shared paths are never touched. It deletes only files that the game's report and the identity in its executable
+  show to be Retro-Recomp's own, inside the output folders. It is not offered in the front-end.
 - **Options > Common > Rounded corners.** Turn it off for plain rectangles, drawn without pictures. It applies at the next
   start. Rounded corners are not what made the window slow.
 

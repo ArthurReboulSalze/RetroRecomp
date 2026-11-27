@@ -10,7 +10,7 @@ import time
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-from .dialogs import popup_menu
+from .dialogs import center_dialog, popup_menu
 from .branding import COLORS
 from .gui_common import EDGE
 from .compiled_games import LEVEL_STARS, Game, default_roots, scan, refresh
@@ -140,6 +140,7 @@ class CompiledGamesView(ttk.Frame):
         self.table.bind('<Button-3>',self.context_menu)
         self.table.bind('<Button-1>',self.star_clicked)
         self.table.bind('<Double-1>',lambda e:self.play())
+        self.table.bind('<Delete>',self.delete_games)          # the same dialog as the menu's « Delete game… »
         self.table.bind('<<TreeviewSelect>>',self.selection)
         # The Version cell of a game compatible with a newer converter: « Converted with 1.9.0 · compatible 1.9.1 ».
         from .tooltips import Tooltip
@@ -429,7 +430,103 @@ class CompiledGamesView(ttk.Frame):
         # A game that was created but is wrong: the report carries its conversion report.
         menu.add_command(label=self.tr('report_problem'),command=lambda:self.owner.report_game_problem(self.chosen()[0]),
                          state='normal' if len(self.chosen())==1 and self.owner.report_available() else 'disabled')
+        menu.add_separator()
+        # The owner's request of 27 November 2026, here only (never in the front-end): the exe and its report, after a dialog.
+        menu.add_command(label=self.tr('delete_game'),command=self.delete_games,
+                         state='disabled' if self.running or self.owner.busy or self.owner.updating else 'normal')
         popup_menu(menu,event.x_root,event.y_root)
+
+    def delete_games(self, event=None):
+        """« Delete game… » (the menu, or Delete on the list): the selected games' executables and reports, after a dialog
+        that names them (game_removal says what may go). Refused while a conversion, an update or a scan runs, and for a
+        game that is running."""
+        games = self.chosen()
+        if not games:return 'break'
+        parent = self.owner.app
+        if self.running or self.owner.busy or self.owner.updating:
+            messagebox.showinfo(APP_NAME,self.tr('delete_game_busy'),parent=parent);return 'break'
+        playing = self.game_process is not None and self.game_process.poll() is None
+        if playing and any(g.executable == getattr(self.played,'executable',None) for g in games):
+            messagebox.showinfo(APP_NAME,self.tr('delete_game_running'),parent=parent);return 'break'
+        from .game_removal import Refused, plan
+        roots = [*default_roots(self.owner.preferences()),*map(Path,self.inventory.roots)]
+        plans, refused = [], []
+        for game in games:
+            try:plans.append(plan(game,roots))
+            except Refused:refused.append(game.title)
+        if refused:
+            messagebox.showwarning(APP_NAME,self.tr('delete_game_refused',titles=', '.join(refused)),parent=parent)
+        if not plans:return 'break'
+        with_saves = self.delete_dialog(plans)
+        if with_saves is None:return 'break'
+        from .game_removal import delete
+        errors = []
+        for item in plans:
+            try:
+                delete(item,with_saves)
+                self.inventory.forget(item.game)       # out of the list at once (the same rule as a scan: it is gone)
+            except (OSError, subprocess.SubprocessError) as error:
+                errors.append(f'{item.game.title}: {error}')
+        self.inventory.save()
+        self.render()
+        front_end = getattr(self.owner,'front_end_view',None)
+        if front_end is not None:front_end.library_refreshed()
+        self.status.set(self.tr('delete_game_done',count=len(plans)-len(errors)))
+        if errors:
+            messagebox.showerror(APP_NAME,self.tr('delete_game_failed',errors='\n'.join(errors)),parent=parent)
+        return 'break'
+
+    def delete_dialog(self, plans):
+        """The confirmation: what goes (paths), whether it can come back from the Recycle Bin, the saves box (unticked),
+        what stays. Returns None (Cancel, Escape, closed) or whether the saves go too."""
+        owner, background = self.owner, COLORS['background']
+        window = tk.Toplevel(owner.app)
+        window.withdraw()
+        window.title(APP_NAME+' - '+self.tr('delete_game_title'))
+        window.configure(bg=background)
+        window.transient(owner.app)
+        body = tk.Frame(window,bg=background,padx=18,pady=14,highlightthickness=1,highlightbackground=COLORS['gold'])
+        body.pack(fill='both',expand=True)
+        font = (owner.ui_font,10)
+        tk.Label(body,text=self.tr('delete_game_question',count=len(plans)),bg=background,fg=COLORS['text'],font=font,
+                 wraplength=560,justify='left').pack(anchor='w')
+        lines = []
+        for item in plans:
+            lines.append(item.game.title)
+            lines.extend('    '+str(path) for path in item.files)
+        listing = tk.Text(body,height=min(12,len(lines)),width=80,wrap='none',bg=COLORS['field'],fg=COLORS['text'],
+                          font=(owner.ui_font,9),relief='flat',highlightthickness=1,highlightbackground=COLORS['subtle_border'])
+        listing.insert('1.0','\n'.join(lines))
+        listing.configure(state='disabled')
+        listing.pack(fill='both',expand=True,pady=(10,0))
+        trash = all(item.trash for item in plans)
+        tk.Label(body,text=self.tr('delete_game_trash' if trash else 'delete_game_final'),bg=background,
+                 fg=COLORS['muted'] if trash else COLORS['error'],font=(owner.ui_font,9),wraplength=560,justify='left').pack(anchor='w',pady=(8,0))
+        saves = sum(len(item.saves) for item in plans)
+        with_saves = tk.BooleanVar(master=window,value=False)
+        box = ttk.Checkbutton(body,text=self.tr('delete_game_saves',count=saves),variable=with_saves)
+        box.pack(anchor='w',pady=(10,0))
+        if not saves:box.state(['disabled'])
+        tk.Label(body,text=self.tr('delete_game_kept'),bg=background,fg=COLORS['muted'],font=(owner.ui_font,9),
+                 wraplength=560,justify='left').pack(anchor='w',pady=(6,0))
+        answer = [None]
+        def confirm():
+            answer[0] = bool(with_saves.get())
+            window.destroy()
+        buttons = tk.Frame(body,bg=background)
+        buttons.pack(fill='x',pady=(16,0))
+        cancel = ttk.Button(buttons,text=self.tr('knowledge_cancel'),command=window.destroy)
+        cancel.pack(side='right')
+        ttk.Button(buttons,text=self.tr('delete_game_confirm'),command=confirm).pack(side='right',padx=(0,8))
+        window.bind('<Escape>',lambda event:window.destroy())
+        self.delete_window = window                    # for the tests
+        window.update_idletasks()
+        center_dialog(window,owner.app,window.winfo_reqwidth(),window.winfo_reqheight(),measured=True)
+        window.deiconify()
+        window.grab_set()
+        cancel.focus_set()                             # Enter on the dialog cancels: deleting takes the button
+        owner.app.wait_window(window)
+        return answer[0]
 
     def play(self):
         games = self.chosen()
@@ -473,8 +570,13 @@ class CompiledGamesView(ttk.Frame):
     def rescan(self):
         games, preferences = self.chosen(), self.owner.preferences()
         def worker():
+            from .compiled_games import gone
             for game in games:
-                self.inventory.remember(refresh(Game(**asdict(game)),preferences,verify_binary=True))
+                fresh = refresh(Game(**asdict(game)),preferences,verify_binary=True)
+                # The same rule as Scan games and the quiet refresh: a deleted game leaves the list; one on a drive
+                # that cannot be reached now stays, greyed.
+                if fresh.status == 'missing' and gone(fresh.executable):self.inventory.forget(fresh)
+                else:self.inventory.remember(fresh)
             self.inventory.save()
             return len(games)
         if games:self.work(worker)

@@ -152,6 +152,11 @@ class Inventory:
         self.save()
         return 0
 
+    def forget(self, game):
+        """Take a game out of the list (its executable is gone, or the player deleted it). Saved by the caller."""
+        with self.lock:
+            self.games.pop(game.key, None)
+
     def set_favorite(self, game, value):
         self.set_favorites([game], value)
 
@@ -167,6 +172,38 @@ class Inventory:
                 if (entry.system, entry.identity) in wanted:
                     entry.favorite = bool(value)
         self.save()
+
+
+def gone(path) -> bool:
+    """The rule for a game whose executable is not where the collection saw it (27 November 2026, one rule for the full
+    scan, Rescan and the quiet refresh): True when the file is absent and the place it was in can be read (the file was
+    deleted, or its folder was): the game leaves the list. False when the file is there, or when its drive or network
+    share cannot be reached now (an unplugged disk, a sleeping NAS): the game stays, greyed (« missing »), and comes back
+    with its drive."""
+    path = Path(path)
+    try:
+        path.stat()
+        return False
+    except FileNotFoundError:
+        pass
+    except OSError:
+        return False
+    if not path.anchor:
+        return False
+    try:
+        with os.scandir(path.anchor):
+            pass
+    except OSError:
+        return False
+    for parent in path.parents:
+        try:
+            with os.scandir(parent):
+                return True
+        except FileNotFoundError:
+            continue
+        except OSError:
+            return False
+    return False
 
 
 def _rebase(value, previous, current):
@@ -309,7 +346,11 @@ def refresh_changed(inventory, preferences=None, games=None, *, cancel=None, bud
         if watch_signature(game) == game.watch and (game.level or not game.report):
             continue
         try:
-            inventory.remember(refresh(Game(**asdict(game)), preferences))
+            fresh = refresh(Game(**asdict(game)), preferences)
+            if fresh.status == 'missing' and gone(fresh.executable):
+                inventory.forget(fresh)            # deleted: it leaves the list, as a full scan does
+            else:
+                inventory.remember(fresh)
         except (OSError, ValueError, TypeError, KeyError):
             continue
         changed += 1
@@ -499,16 +540,8 @@ def scan(inventory, roots, preferences=None, *, cancel=None, progress=lambda n: 
                 continue
             if not visited or any(path.is_relative_to(root) for root in errors):
                 continue
-            confirmed = any(parent in visited for parent in path.parents)
-            if not confirmed:
-                try:
-                    with os.scandir(path.parent):
-                        confirmed = True
-                except OSError:
-                    pass
-            if confirmed:
-                with inventory.lock:
-                    inventory.games.pop(game.key, None)
+            if any(parent in visited for parent in path.parents) or gone(path):
+                inventory.forget(game)
     from .compatibility import update
     update(inventory)
     inventory.save()

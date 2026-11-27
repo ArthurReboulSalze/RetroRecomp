@@ -79,6 +79,8 @@ INTERFACE_MODULES = frozenset(('__init__', 'gui', 'i18n', 'ui_fonts', 'tooltips'
                                'dropfiles', 'updater', 'linux_desktop', 'queue_state', 'tk_threads', 'tk_later',
                                'credits_demo', 'credits_music', 'dialogs',
                                'compiled_games', 'compiled_games_view', 'memory_view',
+                               # « Delete game… » of Compiled Games (the exe, its report, the saves when asked).
+                               'game_removal',
                                # The newest version an export is compatible with (the library only; reads the stamps).
                                'compatibility',
                                'report_schema',

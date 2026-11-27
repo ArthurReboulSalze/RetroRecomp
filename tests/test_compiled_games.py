@@ -296,6 +296,43 @@ class CompiledGamesTests(TestCase):
         self.assertEqual(self.inventory.snapshot()[0].source,str(source))
 
 
+class GoneGamesLeave(TestCase):
+    """Arthur, 27 November 2026: exes deleted from an output folder stayed greyed after Rescan. One rule now
+    (compiled_games.gone) for the full scan, Rescan and the quiet refresh: a game whose executable was deleted leaves
+    the list; only a game on a drive or share that cannot be reached stays, greyed (« missing »)."""
+    setUp = CompiledGamesTests.setUp
+    def scanned(self):
+        scan(self.inventory, [self.root / 'Games'])
+        return {g.title: g.status for g in self.inventory.snapshot()}
+
+    def test_a_deleted_exe_leaves_on_the_quiet_refresh(self):
+        self.assertEqual(len(self.scanned()), 1)
+        self.exe.unlink()
+        from retrorecomp.compiled_games import gone, refresh_changed
+        self.assertTrue(gone(self.exe))
+        refresh_changed(self.inventory)
+        self.assertEqual(self.inventory.snapshot(), [])
+        self.assertEqual(Inventory(self.inventory.path).snapshot(), [])          # saved so
+
+    def test_a_deleted_exe_and_a_deleted_folder_leave_on_a_full_scan(self):
+        self.assertEqual(len(self.scanned()), 1)
+        shutil.rmtree(self.console)                                              # the whole console folder
+        self.assertEqual(self.scanned(), {})
+
+    def test_a_game_on_a_drive_that_cannot_be_reached_stays_greyed(self):
+        import string
+        from retrorecomp.compiled_games import gone, refresh_changed
+        free = next((letter for letter in reversed(string.ascii_uppercase)
+                     if os.name == 'nt' and not Path(f'{letter}:/').exists()), None)
+        if free is None:
+            self.skipTest('no unused drive letter here')
+        away = Game(executable=f'{free}:/Games/Master System/Away.exe', system='sms', identity='c' * 64, title='Away')
+        self.assertFalse(gone(away.executable))
+        self.inventory.remember(away)
+        refresh_changed(self.inventory)
+        self.assertEqual([(g.title, g.status) for g in self.inventory.snapshot()], [('Away', 'missing')])
+
+
 class FavoritesSaveOnce(TestCase):
     """Several games marked at once (the front-end's and the collection's menus) are saved once: a save writes the whole
     inventory with fsync (about 45 ms for 1,322 games), and one save per game held Tk's thread about a second for 20."""

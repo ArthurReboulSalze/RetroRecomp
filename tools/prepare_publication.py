@@ -152,7 +152,7 @@ native/game_options_checks.c tools/game_options_selftest.py tests/test_player_ga
 tools/package_installers.py tools/installers/windows.iss tools/installers/deb_launcher.sh
 tools/installers/linux_install.sh tools/installers/linux_uninstall.sh
 tests/test_installers.py docs/INSTALLING.md
-retrorecomp/compiled_games.py retrorecomp/compiled_games_view.py retrorecomp/memory_view.py
+retrorecomp/compiled_games.py retrorecomp/compiled_games_view.py retrorecomp/memory_view.py retrorecomp/game_removal.py tests/test_game_removal.py
 retrorecomp/compatibility.py assets/release-stamps.json tools/release_stamps.py tests/test_compatibility.py
 retrorecomp/game_details.py retrorecomp/game_metadata.py retrorecomp/game_card_view.py retrorecomp/rom_sources.py
 tests/test_game_cards.py tests/test_disk_sets.py
