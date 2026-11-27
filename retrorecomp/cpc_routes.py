@@ -21,15 +21,18 @@ PLAY_FROM = 900                  # frames: the start command typed at 60, most d
 # CPC keys (native/cpc_machine/cpc_ppi.h: row * 8 + bit)
 KEY_SPACE, KEY_RETURN, KEY_1, KEY_2, KEY_N, KEY_J = 5 * 8 + 7, 2 * 8 + 2, 8 * 8 + 0, 8 * 8 + 1, 5 * 8 + 6, 5 * 8 + 5
 JOY_UP, JOY_DOWN, JOY_LEFT, JOY_RIGHT, JOY_FIRE2, JOY_FIRE1 = 0x01, 0x02, 0x04, 0x08, 0x10, 0x20
+# The fire the routes press: the stick's default button, pin 6, which the CPC reads at bit 4 and calls « fire 2 » (a one-button
+# stick has only it; Gryzor reads it alone), as the pad's main button does (rrhk_cpc.inc).
+FIRE = JOY_FIRE2
 DIRECTIONS = (JOY_UP, JOY_DOWN, JOY_LEFT, JOY_RIGHT, JOY_UP | JOY_LEFT, JOY_UP | JOY_RIGHT, JOY_DOWN | JOY_LEFT,
               JOY_DOWN | JOY_RIGHT)
-START_KEYS = (('key', KEY_SPACE), ('key', KEY_N), ('key', KEY_J), ('key', KEY_1), ('joy', JOY_FIRE1), ('key', KEY_RETURN),
+START_KEYS = (('key', KEY_SPACE), ('key', KEY_N), ('key', KEY_J), ('key', KEY_1), ('joy', FIRE), ('key', KEY_RETURN),
               ('key', KEY_2))
 START_FOR = 2400                 # frames after PLAY_FROM during which the start keys come back every 150 frames
 # The first answers, keys only (the joystick's row of the keyboard would type arrows into a BASIC INPUT): N and RETURN three
 # times (the « o/n » or « Y/N » questions of the trainers, one key or a line each), then SPACE, J, 1, fire, RETURN, 2.
 FIRST_ANSWERS = ((('key', KEY_N), ('key', KEY_RETURN)), (('key', KEY_N), ('key', KEY_RETURN)), (('key', KEY_N), ('key', KEY_RETURN)),
-                 (('key', KEY_SPACE),), (('key', KEY_J),), (('key', KEY_1),), (('joy', JOY_FIRE1),), (('key', KEY_RETURN),),
+                 (('key', KEY_SPACE),), (('key', KEY_J),), (('key', KEY_1),), (('joy', FIRE),), (('key', KEY_RETURN),),
                  (('key', KEY_2),))
 ANSWER_GAP = 100                 # frames between two first answers
 # Past the conversion's routes (3,600 frames), on a long route only: the start keys come back every LATER_EVERY frames, so a game
@@ -79,7 +82,7 @@ def play_events(frames: int, disk_sha256: str) -> list[tuple[int, str, int, int]
             next_start += 150
             continue
         held = rng.randint(6, 40)
-        bits = rng.choice(DIRECTIONS) | (JOY_FIRE1 if rng.random() < 1 / 3 else 0)
+        bits = rng.choice(DIRECTIONS) | (FIRE if rng.random() < 1 / 3 else 0)
         end = min(frame + held, frames - 1, next_start if frame < start_until else frames - 1)
         if frame >= LATER_FROM:
             end = min(end, next_later)
