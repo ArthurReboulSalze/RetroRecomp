@@ -75,7 +75,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | MSX2 | supported | `█████████░` 90 % | ✅ 12 · 🟡 3 · ❔ 0 |
 | MSX2+ | supported | `█████████░` 91 % | ✅ 13 · 🟡 3 · ❔ 0 |
 | Commodore Amiga 1200 | supported | `████████░░` 84 % | ✅ 11 · 🟡 5 · ❔ 0 |
-| ZX Spectrum | experimental | `███████░░░` 70 % | ✅ 8 · 🟡 5 · ❔ 2 |
+| ZX Spectrum | experimental | `████████░░` 77 % | ✅ 9 · 🟡 5 · ❔ 1 |
 | PC Engine CD / TurboGrafx-CD | experimental | `████████░░` 75 % | ✅ 10 · 🟡 4 · ❔ 2 |
 | SG-1000 | experimental | `█████████░` 89 % | ✅ 11 · 🟡 3 · ❔ 0 |
 | Game Boy Color | experimental | `████████░░` 75 % | ✅ 9 · 🟡 6 · ❔ 1 |
@@ -99,7 +99,7 @@ console's status is never a threshold of this bar: leaving the experimental stat
 | G11 Hardware proof | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ❔ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
 | G12 Panel | ✅ | 🟡 | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G13 Cross-OS | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
-| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ❔ | ✅ | ✅ | ✅ | ✅ |
+| G14 Owner OK | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❔ | ✅ | ✅ | ✅ | ✅ |
 | G15 Honesty | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ✅ |
 | G16 Shared hints | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | ➖ | 🟡 | ➖ | ➖ | 🟡 | 🟡 | ❔ | ❔ | ➖ | ❔ | ➖ | ❔ |
 
@@ -129,7 +129,7 @@ psx = Sony PlayStation, msx = MSX, msx2 = MSX2, msx2plus = MSX2+, zxs = ZX Spect
 | G11 | P | P | P | P | P | P | P | P | P | P | P | P | P | P | ? | P | P | P | P | P | P | P | P | P | P | P |
 | G12 | Y | P | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | G13 | Y | Y | Y | Y | Y | P | P | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P |
-| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | ? | Y | Y | Y | Y |
+| G14 | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | ? | Y | Y | Y | Y |
 | G15 | Y | Y | Y | P | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | P | Y | Y | Y | P | P | P | P | P | P | Y |
 | G16 | Y | Y | Y | Y | Y | Y | Y | P | P | P | P | P | P | P | - | P | - | - | P | P | ? | ? | - | ? | - | ? |
 
@@ -246,6 +246,17 @@ The page of each console, which the README links its line to (a console of the m
     phase of ours from 0 to 480 T-states (step 8) reproduces MAME's.
 
   Not claimed: hardware fidelity, gameplay validation, physical latency.
+
+- ZX Spectrum, G14 (27 November 2026; branch `spec/zx-pad`): **G14 moves from `?` to `Y`**. The owner's words: « Je viens de
+  tester Arkanoïd et c'est parfait aussi. Bien joué. Je passe le G14 pour le Spectrum. » He played from `Export\Games\ZX Spectrum`,
+  on his own gamepad. Six games were delivered there for this test: Manic Miner, Jetpac, Head over Heels, Match Day II, Arkanoid
+  and Robocop (Arkanoid, Robocop, Manic Miner and Jetpac rebuilt on 27 November from main e6bc5eec; the two others from 22
+  November).
+  - His reports named Arkanoid and Robocop. Which of the four others he opened is not recorded here.
+  - Arkanoid was the last open point. He had found right faster than left, and the ball leaving when the stick moved. Both are
+    the game's own rules (ZX_SPECTRUM.md, section 6b), and he saw left become the fast side with the check given to him.
+  - This is the owner's acceptance. It is not a gameplay validation of each game from end to end, and physical latency was not
+    measured.
 
 - Atari ST (6 to 9 November 2026; experimental profile of 1.7.1, raised on the branch of 1.7.2): G1 `P`: the profile is declared experimental and
   `tools/status_lint.py` agrees, and the machine is offered to players in 1.7.1. G2 `P`: the common report v2 of every conversion. G3 `P`:

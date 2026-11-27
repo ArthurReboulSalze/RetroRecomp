@@ -131,7 +131,8 @@ without it, and Head over Heels' 8 %.
 ## 6. Qualification
 
 The machine's column of [QUALIFICATION.md](QUALIFICATION.md) (22 November 2026): G2 to G6, G10, G12 and G13 `Y`; G1, G8, G9 and
-G15 `P`; G7 `-`; G14 and G16 `?`; G11 `P` since 27 November (agreement with MAME 0.289, below); the evidence is in its entries
+G15 `P`; G7 `-`; G16 `?`; G11 `P` since 27 November (agreement with MAME 0.289, below); G14 `Y` since 27 November (the owner's
+play from Export); the evidence is in its entries
 there. The
 panel of the study, used for the gates once conversions run: Manic Miner (the first game: 48K, the beeper, the ROM's
 interrupt handler), Jetpac (16K), Arkanoid (the floating bus question), Match Day II (two players), Head over Heels (128K
@@ -182,21 +183,68 @@ This is agreement with a second emulator (G11 `P`), not hardware proof.
 - **Arkanoid** reads the keyboard (left: the half-row Caps Shift to V; right: B to M and Space; fire: A to L, not redefinable) and
   Sinclair Interface 2 on keys 1-5 (1 left, 2 right, 5 fire); it reads the Kempston port once at its start and uses no Kempston
   here (the snapshot declares none). ZXDB lists Interface 2 and Kempston as its joysticks, and no mouse: the Spectrum had mice
-  (AMX, Kempston mouse), but this game reads none, so the kit's mouse has nothing to drive. On the reference, the pad (arrows and
-  Right Ctrl, on Interface 2's 1-5) and the keyboard move the paddle the same way. Measured with authored routes against MAME
-  0.289 (same snapshot, same inputs, the paddle read from both pictures): with the ball in flight the paddle moves 2 pixels a
-  frame both ways; while the ball rests on the paddle before a launch, it moves 2 pixels a frame to the left and accelerates to
-  the right (4, 5, 6 ... 13 pixels a frame), with the same stops (paper x 19.5 and 170.5). Ours matches MAME 0.289 on every frame
-  of both holds, one frame earlier. The resting-ball asymmetry is the game's (it matches MAME 0.289; no real Spectrum here). Our
-  first build moved the paddle twice as fast (4 a frame in flight, 4 left and 9, 13, 17 ... right at rest): the floating bus was
-  sampled one T-state early and the game ran its loop twice a frame (section 5); fixed on 27 November. With the floating bus off
-  the game does not run at all (as documented for the original edition).
+  (AMX, Kempston mouse), but this game reads none, so the kit's mouse has nothing to drive. The pad is Interface 2's 1-5.
+  - **The paddle is faster towards the ball.** This is the game's code (read on 27 November 2026, after the owner found right
+    faster than left). The game keeps the paddle's speed at 94BAh. Each frame, a routine at 8EEAh compares the paddle's centre
+    (its x, 94B8h, plus 10) with the x of the lowest ball. While a direction is held:
+    - towards the ball, the speed starts at 4 pixels a frame and grows by 1 every frame (8DFFh for left, 8E1Ch for right);
+    - away from the ball, the speed is 2.
+
+    So with the ball on the right, a right press moves 4, 5, 6 pixels in its first frames and then 2 once the paddle passes the
+    ball, while left moves 2. With the ball on the left, it is the other way round (measured: −4, −5, −6, then −2; right +2).
+    A ball resting on the paddle before a launch sits right of the centre, and it moves with the paddle. So before every launch,
+    right keeps accelerating (4, 5, 6 … 13 pixels a frame up to the wall) and left stays at 2. That is the asymmetry a player
+    sees most.
+  - **The ball leaves the paddle by itself.** With no input at all, the ball appears on the paddle (frame 1,325 of the play
+    route) and is launched at frame 1,535, about 4.2 seconds later at 50 frames a second. It leaves at the same frame whether
+    the paddle is held left, held right or not moved, and MAME 0.289 launches it at the same frame. A player who moves during
+    those seconds sees the ball go as if the move had fired it (the owner's report of 27 November); no fire key is pressed.
+  - **Checked on the pad path and against MAME 0.289** (27 November 2026). Same snapshot, the ball in flight, the paddle and
+    the speed read every frame:
+    - MAME 0.289 with Interface 2's 1 and 2 held (the pad's keys) and with Z and M gives the same positions as ours, one frame
+      apart as everywhere on this machine (section 6).
+    - A scratch build of the delivered game (never shipped) attached an SDL virtual pad. Through the kit's shell and this
+      adapter, the left stick, the d-pad and both together press key 1 alone for left and key 2 alone for right. No other
+      half-row, no Kempston and no player 2. The speeds are those above.
+
+    The pad path is pinned by `tests/test_zx_spectrum.py` (the adapter's table is the routes' table, one key a direction).
+  - **A second, adversarial pass** (27 November 2026, on the owner's word that right stayed faster in flight). A scratch build
+    of the delivered game played three sessions of 6,500 frames with a virtual left stick (random holds while the ball is high,
+    tracking when it comes down). Over 15,633 logged frames:
+
+    | Ball in play | Stick left | Stick right |
+    |---|---|---|
+    | left of the paddle's centre | mean 6.2 pixels a frame, up to 17 (1,195 frames) | 2 pixels a frame, always (1,462 frames) |
+    | right of the paddle's centre | 2 pixels a frame, always (2,383 frames) | mean 6.3 pixels a frame, up to 15 (1,128 frames) |
+
+    The fast side is under 4 pixels on 2 to 5 % of its frames, when the ball has just crossed the centre. The ball's height
+    changes nothing. The same sessions show:
+    - the move routine runs once a frame: one read of each key port in each of the 14,828 play frames, and the paddle never
+      moves by anything but its stored speed;
+    - the stick presses key 1 or key 2 alone, on every frame.
+
+    Three things that could have made this ours were ruled out:
+    - **The start phase.** Nine start T-states from 0 to 69,000 give the same paddle and ball on every frame: the snapshot waits
+      in the ROM's `PAUSE` (a `HALT`), so the first interrupt aligns it.
+    - **The snapshot.** It is a `.z80` version 2 of the 48K original, saved in BASIC before the game starts, with no trainer.
+    - **The frame sync.** The loop at 848Fh waits for the paper, then for four idle reads of the floating bus in a row, and
+      returns once a frame.
+
+    Independent sources say the same of the original: a 2018 Retro Video Gamer review describes the bat's speed « depending on
+    how far away you were from the ball », and Sinclair User (April 1987) says the ball flies up by itself « after a couple of
+    seconds ». No real Spectrum was used here.
+  - **The first build ran twice as fast.** Our first build moved the paddle twice as fast (4 a frame in flight, 4 left and 9,
+    13, 17 … right at rest): the floating bus was sampled one T-state early and the game ran its loop twice a frame (section
+    5); fixed on 27 November.
+  - With the floating bus off, the game does not run at all (as documented for the original edition).
 - **Robocop** reads the Kempston (chosen in its own menu by the start data); the pad drives it. Compared with MAME 0.289 (`spec128`
   with a Kempston added, same snapshot, same inputs, frame numbers equal): the paper is pixel-identical through the menus and
   the directives and in many play frames, and held left behaves the same in both: from the start of play Robocop only turns to
   face left (he is at the level's left end) and nothing scrolls in 300 frames; after walking right (the street scrolls about
   0.8 pixel a frame), left scrolls the street back only once the enemies standing against him are gone. This matches MAME 0.289;
-  it is the game's behaviour, not hardware-verified. The keyboard controls were not compared.
+  it is the game's behaviour, not hardware-verified. The keyboard controls were not compared. The pad path (27 November 2026, the same scratch build
+  with a virtual pad): the left stick, the d-pad and both together set the Kempston's left bit (02h) alone or its right bit (01h)
+  alone, and press no key.
 
 ## 7. Multiplayer
 
