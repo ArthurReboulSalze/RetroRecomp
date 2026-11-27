@@ -2,8 +2,8 @@
 
 ## Shared F3 filters
 
-All nine console hosts cycle through **Sharp pixels**, **Scale2x**, **Scanlines**,
-then **xBR smooth**. Stored IDs remain unchanged so existing settings keep their
+Every 2D machine on the host kit cycles through **Sharp pixels**, **Scale2x**, **Scanlines**,
+then **xBR smooth**, then the [CRT and LCD looks](#crt-and-lcd-looks). Stored IDs remain unchanged so existing settings keep their
 chosen effect. Mode 1 retains its stored setting ID and replaces
 the earlier Scale2x + AA attempt with a CPU adaptation of Hyllian's xBR-lv2.
 It examines a 5-by-5 neighbourhood to reconstruct diagonal contours at four

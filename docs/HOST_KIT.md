@@ -165,7 +165,7 @@ int rrhk_main(const RrhkMachine *machine, int argc, char **argv); /* windowed or
 
 Shell, one implementation for every family (`hosts.md:307-316`): SDL init and
 hints chosen once per OS, window, icon, saved window rect, filters (sharp, xBR,
-Scale2x, scanlines), integer and fit modes, one pacing loop with audio-lead
+Scale2x, scanlines, and the CRT and LCD looks of [D35](#d35)), integer and fit modes, one pacing loop with audio-lead
 recovery, one audio output (callback ring, device-native format, optional FIR
 source conversion, adaptive reserve), pad hotplug and slots, keyboard defaults
 that follow the layout, one stick threshold, shift twin, autofire, quit and
@@ -413,7 +413,7 @@ X68000 too, without asking again**.
   (`tools/hostkit_players_selftest.py`, `tests/test_hostkit_players.py`).
 * <a id="d14"></a>**D14 — On a 3D machine, F3 opens a graphics menu** (owner's decision of 5 November 2026; **implemented in
   1.7.0**, see [section 2.4](#24-sticks-the-graphics-page-larger-pictures-rumble-and-discs-170)). On the 2D machines F3 cycles the
-  picture filters (sharp pixels, xBR, Scale2x, scanlines) and shows the name for 1.8 s, unchanged. On a machine whose adapter
+  picture filters (sharp pixels, xBR, Scale2x, scanlines; the CRT and LCD looks since [D35](#d35)) and shows the name for 1.8 s, unchanged. On a machine whose adapter
   declares graphics options (the PlayStation first, the Nintendo 64 later) the same key opens the kit's graphics page
   (`RRHK_MENU_GRAPHICS`), where the player switches the options of that machine's renderer (internal resolution, dithering,
   aspect ratio and the like), then the kit's own Filter row, then Restore defaults. The page is the kit's (one menu for every

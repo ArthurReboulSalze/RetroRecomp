@@ -203,7 +203,7 @@ Shared Game Boy settings written with the old default keys by a release before 1
 mappings remain available.
 
 - **F1** help, **Shift+F1** reset, **P** pause, **F2** the keyboard and gamepad mapping layout and options.
-- **F3** cycles sharp pixels, Scale2x, scanlines and xBR smooth. **F4** cycles window, integer pixel-perfect fullscreen and aspect-fit
+- **F3** cycles sharp pixels, Scale2x, scanlines, xBR smooth, CRT flat, CRT curved and LCD grid ([VIDEO.md](VIDEO.md#crt-and-lcd-looks)). **F4** cycles window, integer pixel-perfect fullscreen and aspect-fit
   fullscreen.
 - **F5** switches immediately between pseudo black-and-white monochrome (the default) and classic green, without a menu or a pause.
   The choice is persistent; holding F5 does not repeatedly toggle it. The palette choice applies to DMG games.

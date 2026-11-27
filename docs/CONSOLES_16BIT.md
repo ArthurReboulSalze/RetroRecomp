@@ -22,7 +22,7 @@ establish hardware fidelity, complete gameplay or physical latency.
 
 Both profiles use RetroRecomp's SDL presentation and menu renderer: F1 help,
 Shift+F1 restart, F2 keyboard/gamepad mapping, F3 sharp/Scale2x/scanlines/xBR
-smooth, F4 window/integer fullscreen/aspect-preserving fullscreen,
+smooth/CRT flat/CRT curved ([VIDEO.md](VIDEO.md#crt-and-lcd-looks)), F4 window/integer fullscreen/aspect-preserving fullscreen,
 F6 autofire and F7 for the menu language. Enter, the cartridge Start, pauses
 the game itself. Two controller ports are wired; the
 selected game determines whether two-player gameplay exists. Controller
