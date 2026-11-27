@@ -61,7 +61,12 @@ class Look:
         return element
 
     def card(self, name, fill, bg, radius=14, outline=None):
-        """A rounded frame style 'name.TFrame' (9-slice: any size)."""
+        """A rounded frame style 'name.TFrame' (9-slice: any size); with rounded corners off, a flat fill."""
+        if self.skin.plain:
+            self.style.configure(f'{name}.TFrame', background=fill)
+            self.skin.styled_surfaces[f'{name}.TFrame'] = fill
+            self.made.add(name)
+            return f'{name}.TFrame'
         size = radius * 2 + 2 + CARD_CENTER
         element = self._element(name, self.photo(rounded_box(size, size, radius, fill, bg, outline)), border=radius + 1)
         self.style.layout(f'{name}.TFrame', [(element, {'sticky': 'nsew'})])
@@ -93,15 +98,23 @@ class Look:
         return style_name
 
     def segment(self, name, track, chosen, hover, radius=13, size=10):
-        """A segmented toggle: Radiobuttons whose chosen one is a gold pill on a dark track (put them in a `track` card)."""
-        edge = radius * 2 + 2 + CENTER          # the middle is tiled: wide, so few draws (see CARD_CENTER)
-        off = self.photo(rounded_box(edge, edge, radius, track, track))
-        on = self.photo(rounded_box(edge, edge, radius, chosen, track))
-        over = self.photo(rounded_box(edge, edge, radius, hover, track))
-        element = self._element(name, off, ('selected', on), ('active', over), border=radius + 1, padding=2)
-        self.style.layout(f'{name}.TRadiobutton', [(element, {'sticky': 'nsew', 'children': [
-            ('Radiobutton.padding', {'sticky': 'nsew', 'children': [('Radiobutton.focus', {'sticky': 'nsew', 'children': [
-                ('Radiobutton.label', {'sticky': 'nsew'})]})]})]})])
+        """A segmented toggle: Radiobuttons whose chosen one is a gold pill on a dark track (put them in a `track` card); with
+        rounded corners off, a gold rectangle (the label's own background, no picture)."""
+        inner = [('Radiobutton.padding', {'sticky': 'nsew', 'children': [('Radiobutton.focus', {'sticky': 'nsew', 'children': [
+            ('Radiobutton.label', {'sticky': 'nsew'})]})]})]
+        if self.skin.plain:
+            # a border element fills the label's rectangle with the style's background (a bare label paints nothing behind it)
+            self.style.layout(f'{name}.TRadiobutton', [('Button.border', {'sticky': 'nsew', 'border': '1', 'children': inner})])
+            self.style.configure(f'{name}.TRadiobutton', relief='flat', borderwidth=0, bordercolor=track, lightcolor=track,
+                                 darkcolor=track)
+            self.style.map(f'{name}.TRadiobutton', background=[('selected', chosen), ('active', hover), ('!selected', track)])
+        else:
+            edge = radius * 2 + 2 + CENTER          # the middle is tiled: wide, so few draws (see CARD_CENTER)
+            off = self.photo(rounded_box(edge, edge, radius, track, track))
+            on = self.photo(rounded_box(edge, edge, radius, chosen, track))
+            over = self.photo(rounded_box(edge, edge, radius, hover, track))
+            element = self._element(name, off, ('selected', on), ('active', over), border=radius + 1, padding=2)
+            self.style.layout(f'{name}.TRadiobutton', [(element, {'sticky': 'nsew', 'children': inner})])
         self.style.configure(f'{name}.TRadiobutton', foreground=self.c['muted'], padding=(16, 5), anchor='center',
                              font=(self.font, size, 'bold'), focuscolor=self.c['gold'])
         self.style.map(f'{name}.TRadiobutton', foreground=[('disabled', self.c['disabled']),

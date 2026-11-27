@@ -23,6 +23,29 @@
 again once; its cartridge saves and quick-state format are not changed by this work
 ([UPGRADES.md](UPGRADES.md#game-boy-and-game-boy-color-exports-of-191-next-release)).
 
+## The converter's window answers faster
+
+- **A batch no longer freezes the window.** Each turn now writes the log's lines at once, and the panel keeps the last 5,000 lines;
+  the whole session stays available for problem reports. Before, 3,000 lines arriving together held the window more than a
+  second.
+- **Options opens at once.** A machine's page is built the first time it is chosen in the Consoles list, no longer the 27 pages
+  each time Options opens.
+- **Compiled Games opens sooner**, about twice as fast with a large collection. Its code is read in the background after
+  start. Opening it again no longer re-reads every game's files each time: that happens at most every 20 seconds, as when
+  the window comes back to the front. While the files are read, the window keeps its turn.
+- **Favourites are instant.** Marking several games saves the collection once, not once per game (100 games took about
+  ten seconds).
+- **A deleted game leaves Compiled Games.** Once its executable is deleted, the next scan, Rescan or return to the
+  window removes the game from the list. Before, it stayed greyed until a full scan. A game stays greyed only while its
+  drive or network share cannot be reached, and comes back with it.
+- **Compiled Games: Delete game…** (right-click, or the Delete key). It deletes the selected games' executables and
+  conversion reports after a dialog that lists them, into the Recycle Bin or the trash. The dialog says when there is none,
+  for example on a network drive. The saves stay unless « Also delete the saves » is ticked. The ROM, the library and
+  the shared paths are never touched. It deletes only files that the game's report and the identity in its executable
+  show to be Retro-Recomp's own, inside the output folders. It is not offered in the front-end.
+- **Options > Common > Rounded corners.** Turn it off for plain rectangles, drawn without pictures. It applies at the next
+  start. Rounded corners are not what made the window slow.
+
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still
 counted and shown per CPU and per device wherever it is used.
 

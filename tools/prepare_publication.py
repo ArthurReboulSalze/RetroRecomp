@@ -152,7 +152,7 @@ native/game_options_checks.c tools/game_options_selftest.py tests/test_player_ga
 tools/package_installers.py tools/installers/windows.iss tools/installers/deb_launcher.sh
 tools/installers/linux_install.sh tools/installers/linux_uninstall.sh
 tests/test_installers.py docs/INSTALLING.md
-retrorecomp/compiled_games.py retrorecomp/compiled_games_view.py retrorecomp/memory_view.py
+retrorecomp/compiled_games.py retrorecomp/compiled_games_view.py retrorecomp/memory_view.py retrorecomp/game_removal.py tests/test_game_removal.py
 retrorecomp/compatibility.py assets/release-stamps.json tools/release_stamps.py tests/test_compatibility.py
 retrorecomp/game_details.py retrorecomp/game_metadata.py retrorecomp/game_card_view.py retrorecomp/rom_sources.py
 tests/test_game_cards.py tests/test_disk_sets.py
@@ -170,7 +170,7 @@ MEDIAS/trackers_chiploom/pocket_signals_v2.mod
 retrorecomp/platforms.py retrorecomp/toolchain.py native/platform_io.h native/platform_io.c
 retrorecomp/linux_desktop.py tests/test_linux_desktop.py
 retrorecomp/languages.py
-retrorecomp/ui_fonts.py tools/build_languages.py tests/test_languages.py
+retrorecomp/ui_fonts.py tools/build_languages.py tests/test_languages.py tests/test_log_panel.py
 retrorecomp/resources.py native/embedded_resources.h
 docs/LANGUAGES.md
 docs/QUALITY_REVIEW.md

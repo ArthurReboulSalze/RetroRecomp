@@ -160,4 +160,6 @@ INTERFACE_PREFERENCES = ('coverage_default_revision', 'gb_validation_default_rev
                          # Games converted at once per console: the window cuts the queue by it.
                          'console_jobs',
                          # A guest's « Ready automatically » in the Multiplayer window, never read by a converter.
-                         'multiplayer_auto_ready')
+                         'multiplayer_auto_ready',
+                         # Rounded corners of the window (Options), read by the window at start only.
+                         'rounded_corners')

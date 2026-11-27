@@ -407,6 +407,13 @@ def smoke(window):
     assert picker.get() == application.tr('options_ng')
     assert [frame.winfo_manager() for _, _, frame in application.options_console_pages].count('pack') == 1
     assert application.options_console_pages[neo_geo][2].winfo_manager() == 'pack'
+    # A machine's page is built when it is first shown (27 November 2026: building all of them made Options slow to open):
+    # the first page shown and the Neo Geo's are, the others are empty frames until then.
+    built = [index for index, (_, _, frame) in enumerate(application.options_console_pages) if frame.winfo_children()]
+    assert neo_geo in built and len(built) <= 2, built
+    for index in range(len(application.options_console_pages)):
+        application.build_console_page(index)      # the checks below reach every machine's page
+    assert all(frame.winfo_children() for _, _, frame in application.options_console_pages)
     # The search that fills every machine's firmware paths from one folder lives in Common, in its own section (its dialog
     # is not opened here), and no longer beside the machine list.
     assert application.firmware_search_button.cget('text') == application.tr('firmware_search')
@@ -798,6 +805,42 @@ def smoke(window):
     fixtures.cleanup()
 
 
+
+def plain_smoke():
+    """Rounded corners off (Options, preference `rounded_corners`, read at start): the same window with the plain skin. It
+    opens, Options and its machine pages, the collection and the Multiplayer window build, and no picture is drawn for a
+    shape (27 November 2026)."""
+    from retrorecomp.gui import Application
+    from retrorecomp.rounded_skin import skin_of
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        application = Application(root)
+        skin = skin_of(root)
+        assert skin.plain and not application.rounded_corners.get()
+        root.update_idletasks()
+        application.show_options()
+        assert application.rounded_corners_control.cget('text') == application.tr('rounded_corners')
+        assert application.rounded_corners_note.cget('text') == application.tr('rounded_corners_note')
+        for index in range(len(application.options_console_pages)):
+            application.build_console_page(index)
+        root.update_idletasks()
+        application.rounded_corners_control.invoke()                 # on again: saved, shown at the next start
+        assert application.preferences()['rounded_corners'] is True and skin.plain
+        application.close_options()
+        application.toggle_compiled_games()
+        root.update_idletasks()
+        application.toggle_compiled_games()
+        view = application.show_multiplayer()
+        root.update_idletasks()
+        if view is not None and hasattr(view, 'close'):
+            view.close()
+        root.update_idletasks()
+        assert skin.pictures == 0 and not skin.images, skin.pictures
+        print('PASS: rounded corners off: the window, Options, the collection and Multiplayer, no shape picture')
+    finally:
+        root.destroy()
+
 tk.Tk.mainloop = smoke
 with tempfile.TemporaryDirectory() as queue_folder, \
         patch_gui('data_directory',return_value=Path(queue_folder)), \
@@ -807,3 +850,11 @@ with tempfile.TemporaryDirectory() as queue_folder, \
         patch_gui('save_cover_settings'), \
         patch_gui('save_preferences'):
     launch()
+with tempfile.TemporaryDirectory() as queue_folder, \
+        patch_gui('data_directory',return_value=Path(queue_folder)), \
+        patch('retrorecomp.compiled_games.data_directory',return_value=Path(queue_folder)), \
+        patch_gui('load_preferences', return_value={'language': 'en', 'system_mode': 'auto', 'rounded_corners': False}), \
+        patch_gui('load_cover_settings', side_effect=cover_defaults), \
+        patch_gui('save_cover_settings'), \
+        patch_gui('save_preferences'):
+    plain_smoke()

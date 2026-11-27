@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import tkinter as tk
 import unittest
 from pathlib import Path
@@ -113,6 +114,27 @@ class TkThreadsTests(unittest.TestCase):
         del owner, other
         gc.collect()
         self.assertIsNone(gone())                                       # its variable's __del__ found its command gone, silently
+        tk_threads.release_deferred()
+
+    def test_a_destroyed_root_leaves_no_timer_to_run_under_another_root(self):
+        """A timer still queued when its root goes would run at the next root's update() with its command gone
+        (« invalid command name "…poll" », about 115 per full suite before 27 November 2026)."""
+        from retrorecomp import tk_later
+        other = tk.Tk()
+        other.withdraw()
+        label = tk.Label(other)
+        ran = []
+        tk_later.later(label, 1, lambda: ran.append(1))
+        other.after(1, lambda: ran.append(2))
+        self.assertEqual(len(other.tk.splitlist(other.tk.call('after', 'info'))), 2)
+        other.destroy()
+        self.assertEqual(other.tk.splitlist(other.tk.call('after', 'info')), ())
+        for _ in range(5):                    # Tcl prints its « invalid command name » on the C stderr: the queue is what is checked
+            self.root.update()
+            time.sleep(0.005)
+        self.assertEqual(ran, [])
+        del other, label
+        gc.collect()
         tk_threads.release_deferred()
 
 # A destroyed root in a reference cycle, freed by the cycle collector in a worker thread (what the full suite hit twice on

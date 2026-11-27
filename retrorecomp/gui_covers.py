@@ -591,7 +591,13 @@ class MissingCoversMixin:
         if self.close_when_idle or not any(r.state == 'ready' and r.source for r in requests.entries.values()):
             return
         if self.busy or getattr(self, 'updating', False) or getattr(self, 'importing', False):
-            self._cover_retry = self.app.after(APPLY_RETRY_MS, self.apply_dropped_covers)
+            # One retry at a time: several calls while busy (each batch's end, each dropped image) armed one chain each.
+            if getattr(self, '_cover_retry_pending', None):
+                try:
+                    self.app.after_cancel(self._cover_retry_pending)
+                except (tk.TclError, ValueError):
+                    pass
+            self._cover_retry = self._cover_retry_pending = self.app.after(APPLY_RETRY_MS, self.apply_dropped_covers)
             self.cover_window_rows()
             return
         ready = requests.take_ready()

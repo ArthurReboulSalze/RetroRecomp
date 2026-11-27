@@ -596,5 +596,101 @@ class ReopenedWindowsLeaveNothing(ToolbarWindow):
         self.assertEqual(self.callbacks(), first)
 
 
+
+class LongUseStaysFlat(ToolbarWindow):
+    """Arthur, 27 November 2026: « vérifier qu'il n'y a pas d'autres bugs qui peuvent faire ramer l'interface ». A session
+    that goes through every view again and again must not pile anything up: Python callbacks and traces in Tcl, pending
+    timers, widgets, Tk images, `bind all` scripts, tooltips. Counts, not times: they hold on a busy PC."""
+    def state(self):
+        import re
+        tcl = self.root.tk
+        commands, traces = ReopenedWindowsLeaveNothing.callbacks(self)
+        def widgets(widget):
+            return 1 + sum(widgets(child) for child in widget.winfo_children())
+        return {'commands': commands, 'traces': traces,
+                'timers': len(tcl.splitlist(tcl.call('after', 'info'))), 'widgets': widgets(self.root),
+                'images': len(tcl.splitlist(tcl.call('image', 'names'))),
+                'bind_all': sum(len(str(tcl.call('bind', 'all', s))) for s in tcl.splitlist(tcl.call('bind', 'all'))),
+                'bind_root': sum(len(str(tcl.call('bind', str(self.root), s))) for s in tcl.splitlist(tcl.call('bind', str(self.root)))),
+                'tooltips': len(self.app.tooltips)}
+
+    def cycle(self, number):
+        app = self.app
+        app.toggle_compiled_games(); self.root.update()
+        app.toggle_compiled_games(); self.root.update()
+        app.toggle_front_end(); self.root.update()
+        app.toggle_front_end(); self.root.update()
+        app.show_options(); self.root.update_idletasks()
+        app.show_console_page(number % len(app.options_console_pages)); self.root.update_idletasks()
+        with patch_gui('save_preferences'):
+            app.close_options()
+        for line in range(300):
+            app.messages.put(('log', f'cycle {number} line {line}'))
+        while not app.messages.empty():
+            self.root.update()
+        self.root.update()
+
+    def test_every_view_again_and_again_piles_nothing_up(self):
+        self.cycle(0)                       # first use builds what stays (the collection's view, the front-end's)
+        first = self.state()
+        for number in range(1, 5):
+            self.cycle(number)
+        last = self.state()
+        self.assertLessEqual(last['commands'], first['commands'], (first, last))
+        self.assertLessEqual(last['timers'], first['timers'], (first, last))     # transient jobs come and go; none piles up
+        for key in ('traces', 'widgets', 'images', 'bind_all', 'bind_root', 'tooltips'):
+            self.assertEqual(last[key], first[key], key)
+
+    def test_the_log_panel_does_not_grow_without_end(self):
+        from retrorecomp import gui_conversion
+        with patch.object(gui_conversion, 'LOG_KEEP', 200):
+            for line in range(1000):
+                self.app.messages.put(('log', f'line {line}'))
+            while not self.app.messages.empty():
+                self.root.update()
+        lines = int(self.app.log.index('end-1c').split('.')[0])
+        self.assertLessEqual(lines, 200 + 20 + 1)
+        self.assertEqual(self.app.session_log[-1], 'line 999')
+
+
+class OptionsPagesBuiltWhenShown(ToolbarWindow):
+    """Options built the 27 machine pages at each opening (1.2 s of 1.5 s on the owner's PC, 27 November 2026): a page is
+    built the first time it is shown, once."""
+    def built(self):
+        return [index for index, (_, _, frame) in enumerate(self.app.options_console_pages) if frame.winfo_children()]
+
+    def test_only_the_page_shown_is_built(self):
+        self.app.show_options()
+        self.addCleanup(lambda: self.app.options_panel is not None and self.app.close_options())
+        first = self.built()
+        self.assertEqual(first, [self.app.options_console_index])
+        other = (first[0] + 5) % len(self.app.options_console_pages)
+        self.app.show_console_page(other)
+        children = len(self.app.options_console_pages[other][2].winfo_children())
+        self.assertEqual(sorted(self.built()), sorted({first[0], other}))
+        self.app.show_console_page(first[0])
+        self.app.show_console_page(other)                    # shown again: not built again
+        self.assertEqual(len(self.app.options_console_pages[other][2].winfo_children()), children)
+
+
+class CollectionStateChangesOnly(ToolbarWindow):
+    """The collection's drain runs ten times a second and asked its buttons to redraw each time: now only on a change."""
+    def test_the_buttons_are_configured_once_per_change(self):
+        view = self.app.ensure_compiled_view()
+        view.conversion_state()
+        calls = []
+        original = view.scan_button.configure
+        with patch.object(view.scan_button, 'configure', side_effect=lambda *a, **k: (calls.append(k), original(*a, **k))[1]):
+            for _ in range(10):
+                view.conversion_state()
+            self.assertEqual(calls, [])
+            self.app.busy = True
+            for _ in range(10):
+                view.conversion_state()
+            self.app.busy = False
+        self.assertEqual(calls, [{'state': 'disabled'}])
+        view.conversion_state()
+
+
 if __name__ == '__main__':
     unittest.main()

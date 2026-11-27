@@ -68,11 +68,15 @@ _PYTHON_COMMAND = re.compile(r'^[0-9]')
 
 
 def _forget_callbacks(interpreter) -> int:
-    """After its root is destroyed: remove the variable traces that call Python, then delete every Python callback still
-    defined in the interpreter. Returns how many callbacks were deleted."""
+    """After its root is destroyed: cancel the timers and idle calls still queued, remove the variable traces that call
+    Python, then delete every Python callback still defined in the interpreter. Returns how many callbacks were deleted.
+    A queued timer outlives its root: Tcl's event loop belongs to the thread, so the next update() of another root runs it,
+    and its command is gone (« invalid command name "…poll" », about 115 per full suite, 27 November 2026)."""
     deleted = 0
     try:
         split = interpreter.splitlist
+        for job in split(interpreter.call('after', 'info')):
+            interpreter.call('after', 'cancel', job)
         for variable in split(interpreter.call('info', 'globals')):
             try:
                 traces = split(interpreter.call('trace', 'info', 'variable', variable))
