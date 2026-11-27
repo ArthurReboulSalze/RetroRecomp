@@ -191,12 +191,14 @@ Audited on a player's library of 12,347 files and a frontend's firmware folder o
   is unchanged. Discs of other machines (Saturn, Sega CD, Neo Geo CD, Dreamcast) are refused by their content instead of being
   labelled PlayStation or PC Engine CD.
 
-**Your exports and quick states.** **[PLACEHOLDER final commit: the stamps measured between 1.9.1 and 1.10.0, what is converted
-again]** An F8 / F9 quick state made in 1.9.1 is refused cleanly, with a message, on the Mega Drive, the Super Nintendo, the PC
-Engine, the Atari ST, the Nintendo 64 and the two Amigas: their keys follow the game stamp or engine files that changed. A Game
-Boy state of 1.9.1 loads (checked on one game). On the Master System, the Game Gear, the NES, the Neo Geo, the CPS-1, CPS-1.5 and
-CPS-2, the Sharp X68000, the Game Boy Advance, the PlayStation and the MSX family, nothing their state's key or layout depends on
-changed, so a 1.9.1 state should load (read from the code, not tried with a state). Cartridge saves, memory cards and the copies of written disks are kept ([UPGRADES.md](UPGRADES.md)).
+**Your exports and quick states.** 1.10.0 moves the game, host and build stamps of every machine of 1.9.1, so on the first batch
+after you update the exports of the Master System, Game Gear, Game Boy, NES, Mega Drive, Super Nintendo, Neo Geo, CPS-1, CPS-2, PC
+Engine, Game Boy Advance, Nintendo 64, PlayStation, Atari ST, the two Amigas and Adventure (ScummVM) are **upgraded** from the paths
+they already learned, the Sharp X68000's are converted again once, and the MSX family's are [PLACEHOLDER MSX: « upgraded » if the A/B of v1.9.1 against the head is identical, else « converted again once »].
+An F8 / F9 quick state made in 1.9.1 is refused cleanly, with a message, on the Mega Drive, the Super Nintendo, the PC Engine, the
+two Amigas, the Atari ST, the Nintendo 64 and the Sharp X68000. A Game Boy state of 1.9.1 loads (checked on one game); on the other
+machines nothing their state's key or layout depends on changed, so it should load (read from the code, not tried with a state).
+Cartridge saves, disk copies, backup memory and memory cards are kept ([UPGRADES.md](UPGRADES.md#exports-of-191-in-1100)).
 
 None of this is a measure of hardware fidelity, complete gameplay or physical latency; the interpreter fallback is still counted
 and shown per CPU and per device wherever it is used, in a match as alone.
