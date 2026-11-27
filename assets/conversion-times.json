@@ -101,6 +101,9 @@
    "standard": {"seconds": [59, 67, 79], "longest": 90, "reports": 18, "versions": "1.7.3..1.7.6"},
    "extended": {"seconds": [156, 162, 167], "longest": 177, "reports": 10, "versions": "1.7.3..1.7.3"}
   },
+  "zxs": {
+   "standard": {"seconds": [60, 71, 86], "longest": 107, "reports": 6, "versions": "1.9.1..1.9.1"}
+  },
   "pcecd": {
    "standard": {"seconds": [726, 749, 777], "longest": 855, "reports": 8, "versions": "1.9.1..1.9.1"},
    "extended": {"seconds": [2057, 2164, 2220], "longest": 2346, "reports": 9, "versions": "1.9.1..1.9.1"}
