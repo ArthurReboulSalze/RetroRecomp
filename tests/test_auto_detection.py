@@ -3,7 +3,7 @@
 Every file is authored here from the few header bytes a format needs: no ROM bytes, nothing from the player's library. The
 audit of 27 November 2026 (.build/auto-detect-audit/REPORT.md) ran the same function over the owner's library; these cases pin
 what it showed to be right and mark, with `expectedFailure`, the misdetections that are known and not fixed yet (each one
-names the file whose edit moves a game stamp, so the change is the lead's decision).
+names the file whose edit moves a game stamp, so the change is the lead's decision). None is left open.
 """
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -184,17 +184,20 @@ class DiscsOfOtherMachinesTests(AutoDetectionCase):
         self.refused(self.archive('bios/neogeo.zip', {'sp-s2.sp1': bytes(0x20000), 'sm1.sm1': bytes(0x20000)}))
 
 
-class KnownGapTests(AutoDetectionCase):
-    """Misdetections the audit measured and left for the lead (each one is an edit that moves a game stamp)."""
+class DiscsByContentTests(AutoDetectionCase):
+    """A disc is claimed by what it holds, never by its extension (two gaps of the audit, closed with the PlayStation's CHD support:
+    `.chd` is listed by both disc machines, and the PlayStation refuses a `.img` or `.ccd` its content check has left)."""
 
-    @unittest.expectedFailure
     def test_a_chd_that_is_no_pc_engine_disc_is_not_claimed_by_its_extension(self):
-        # A Sega CD, Dreamcast or Neo Geo CD image is a CHD too: `.chd` is listed by the PC Engine CD alone, so the extension
-        # stage hands it that machine (systems/pc_engine_cd.py) when its content check has already said no.
+        # A Sega CD, Dreamcast or Neo Geo CD image is a CHD too: neither disc machine's content check takes it.
         header = b'MComprHD' + struct.pack('>I', 124) + struct.pack('>I', 5) + bytes(200)
         self.refused(self.make('segacd/game.chd', header))
 
-    @unittest.expectedFailure
     def test_a_disc_image_that_is_no_playstation_disc_is_not_claimed_by_its_extension(self):
-        # Same fall-through for `.img` and `.ccd`, which only the PlayStation lists (a Saturn image, an Atari ST TOS).
-        self.refused(self.make('saturn/game.img', bytes(300000)))
+        # `.img` and `.ccd` are listed by the PlayStation alone (a Saturn image, an Atari ST TOS, another machine's CloneCD dump).
+        for name in ('saturn/game.img', 'any/game.ccd'):
+            with self.subTest(name), self.assertRaisesRegex(UnsupportedConsoleError, 'not a disc of a supported machine'):
+                profile_for_path(self.make(name, bytes(300000)))
+        # an EBOOT is the PlayStation's own container: its reader says what is wrong with it
+        with self.assertRaisesRegex(UnsupportedConsoleError, 'not an EBOOT'):
+            profile_for_path(self.make('psp/EBOOT.pbp', bytes(300000)))
