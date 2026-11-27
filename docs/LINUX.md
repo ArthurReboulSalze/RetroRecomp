@@ -31,11 +31,30 @@ Slug 3; with 5.3.0 (1.6.2) it is published packed, 45 MB.
 Conversion still requires the native build tools: `build-essential`, `cmake`,
 `ninja-build`, `git`, `pkg-config`, `curl` and the SDL2 development dependencies
 (X11, Wayland, ALSA, PulseAudio, udev, OpenGL/EGL/GLES, DRM/GBM, D-Bus). On
-Debian and Ubuntu the converter checks them before the first conversion and,
-with your consent, installs only the missing ones through `pkexec apt-get
-install --no-install-recommends`, with a progress window; elsewhere it names
-the missing commands. No console needs Rust/Cargo since 1.4.1. See
-[BUILDING.md](BUILDING.md).
+Debian and Ubuntu the converter checks them (`dpkg-query`) before the first
+conversion and, with your consent, installs only the missing ones through
+`pkexec apt-get install --no-install-recommends`, with a progress window. On
+Fedora and its relatives (RHEL, Rocky, Alma; detected from `ID` and `ID_LIKE` in
+`/etc/os-release`) it checks the same set with `rpm -q` and installs through
+`pkexec dnf install`. On another distribution it names the missing commands.
+No console needs Rust/Cargo since 1.4.1. See [BUILDING.md](BUILDING.md).
+
+On Fedora, to install them yourself in one command (the 27 packages the
+converter checks; they are the apt list name for name, `build-essential` being
+`gcc`, `gcc-c++` and `make`; the conversions of the 27 November 2026 test on
+Fedora 45 ran with exactly this set):
+
+```sh
+sudo dnf install -y --setopt=install_weak_deps=False gcc gcc-c++ make cmake ninja-build   pkgconf-pkg-config git curl libX11-devel libXext-devel libXrandr-devel libXcursor-devel   libXi-devel libXinerama-devel libXScrnSaver-devel libXfixes-devel libxkbcommon-devel   wayland-devel alsa-lib-devel pulseaudio-libs-devel systemd-devel mesa-libGL-devel   mesa-libEGL-devel mesa-libGLES-devel libdrm-devel mesa-libgbm-devel dbus-devel
+```
+
+**Bazzite and other image-based Fedora systems** (rpm-ostree, `/usr` read-only):
+`dnf install` does not work on the system itself, so the converter does not try:
+it names the command and asks for a container. Install the packages in a
+`toolbox` or `distrobox` container (`toolbox create`, `toolbox enter`, then the
+command above) and run Retro-Recomp from inside it. Bazzite itself has not been
+tested; this follows from how those systems work and from the Fedora 45 result
+above.
 Keep Linux and Windows compiler caches separate. The package contains no ROM
 or BIOS. Supply your own game files and, for Neo Geo, your BIOS.
 Each game is built in its own folder under `.build` beside the converter

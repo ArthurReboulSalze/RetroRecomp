@@ -759,6 +759,7 @@
     "base_error_unavailable": "在线服务已关闭。",
     "base_error_format": "共享库使用了此版本 Retro-Recomp 无法读取的格式：请更新 Retro-Recomp。",
     "base_error_disk": "无法在此电脑上写入共享库。",
+    "base_error_toolarge": "共享库的压缩包超出了此版本 Retro-Recomp 可接受的大小：请更新 Retro-Recomp。",
     "online_outdated": "此版本的 Retro-Recomp 过旧，无法发送发现。请更新 Retro-Recomp：你的发现会保留在本地，更新后即可发送。",
     "online_outdated_min": "服务现在要求 Retro-Recomp {minimum} 或更高版本才能发送发现。请更新 Retro-Recomp：你的发现会保留在本地，更新后即可发送。",
     "auto_send_done": "共享库：已自动发送 {games} 款游戏的新发现。",

@@ -1510,7 +1510,7 @@ BASE_ROUTE = 'base3'
 BASE_CHECK_EVERY = 6 * 60 * 60
 BASE_UPDATE_EVERY = 24 * 60 * 60
 BASE_DELTA_LIMIT = 64 * 1024 * 1024
-BASE_FULL_LIMIT = 512 * 1024 * 1024
+BASE_FULL_LIMIT = 1024 * 1024 * 1024
 BASE_REJECTED_KEPT = 16
 BASE_IMPORT_BATCH = 256
 BASE_SITE_NAME = 'site.json'
@@ -1522,7 +1522,7 @@ _SHA256 = re.compile(r'[0-9a-f]{64}')
 _DELTA_FILE = re.compile(r'retro-recomp-base3-\d{1,9}-\d{1,9}\.zip')
 _NETWORK_ERRORS = (ServiceError, ServiceConnectionError, OSError, ValueError)
 # The reasons update_base and check_base give for a failure.
-BASE_ERRORS = ('offline', 'unavailable', 'no_base', 'no_path', 'format', 'verify', 'service', 'disk')
+BASE_ERRORS = ('offline', 'unavailable', 'no_base', 'no_path', 'format', 'verify', 'service', 'disk', 'too_large')
 
 
 def _is_count(value) -> bool:
@@ -1662,7 +1662,8 @@ def _error_code(error) -> str | None:
     if isinstance(error, ServiceError):
         return error.reason if error.reason in ('unavailable', 'no_base', 'no_path', 'format', 'verify') else 'service'
     if isinstance(error, ValueError):
-        return 'verify'
+        from .knowledge_exchange import BaseArchiveError
+        return 'too_large' if isinstance(error, BaseArchiveError) and error.reason == 'too_large' else 'verify'
     return 'disk'
 
 

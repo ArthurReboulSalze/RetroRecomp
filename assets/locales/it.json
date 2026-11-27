@@ -759,6 +759,7 @@
     "base_error_unavailable": "il servizio online è disattivato.",
     "base_error_format": "la base usa un formato che questa versione di Retro-Recomp non sa leggere: aggiorna Retro-Recomp.",
     "base_error_disk": "non è stato possibile scrivere la base su questo computer.",
+    "base_error_toolarge": "l’archivio della base è più grande di quanto accetti questa versione di Retro-Recomp: aggiorna Retro-Recomp.",
     "online_outdated": "Questa versione di Retro-Recomp è troppo vecchia per inviare scoperte. Aggiorna Retro-Recomp: le tue scoperte restano qui e verranno inviate dopo l’aggiornamento.",
     "online_outdated_min": "Il servizio richiede ora Retro-Recomp {minimum} o successivo per inviare scoperte. Aggiorna Retro-Recomp: le tue scoperte restano qui e verranno inviate dopo l’aggiornamento.",
     "auto_send_done": "Base comune: le nuove scoperte di {games} giochi sono state inviate automaticamente.",

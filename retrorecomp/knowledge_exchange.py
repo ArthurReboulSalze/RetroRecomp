@@ -1165,7 +1165,43 @@ BASE_INDEX_JSON_LIMIT = 64 * 1024 * 1024
 BASE_ENTRY_LIMIT = 16 * 1024 * 1024
 BASE_MANIFEST_LIMIT = 64 * 1024
 BASE_ZIP_MEMBERS = 250000
-BASE_UNPACKED_LIMIT = 1024 * 1024 * 1024
+# The ceiling on the sum of the unpacked sizes of a base archive. It exists only against a damaged or hostile archive (a zip
+# bomb): it is not a size the base is meant to reach. The base grows with the players' discoveries (no. 28: 1,218,222,201 bytes
+# unpacked in 5,370 members, 261 MB zipped), so the SERVER MUST STAY WELL BELOW IT, and below the ceiling of the oldest
+# converter it still serves (`base_unpacked_ceiling`, which the site mirrors): a converter refuses a base above its own ceiling.
+BASE_UNPACKED_LIMIT = 8 * 1024 * 1024 * 1024
+# What a converter of each release accepts, newest first: (the first release with it, its ceiling in bytes). Releases up to 1.9.1
+# bounded the unpacked size to 1 GiB, which the full base no. 28 already passed.
+BASE_CEILING_HISTORY = (((1, 9, 2), BASE_UNPACKED_LIMIT), ((0, 0, 0), 1024 * 1024 * 1024))
+# Room the disk must keep beyond the unpacked size of a base before it is unpacked (the store, its temporary files, the state).
+BASE_DISK_MARGIN = 256 * 1024 * 1024
+
+
+def base_unpacked_ceiling(converter_version: str) -> int:
+    """The unpacked-size ceiling of the converter of this release ('1.9.1', '1.9.2'...): the largest base it reads. Pure, so
+    the site can mirror it and publish a base no supported converter would refuse (the minimum over the oldest release it
+    still serves)."""
+    try:
+        version = tuple(int(part) for part in re.findall(r'\d+', converter_version)[:3])
+        version += (0,) * (3 - len(version))
+    except ValueError:
+        version = (0, 0, 0)
+    return next(ceiling for first, ceiling in BASE_CEILING_HISTORY if version >= first)
+
+
+def require_room_for(path: Path, size: int) -> None:
+    """OSError (ENOSPC, the 'disk' reason of an update) unless the disk holding `path` keeps `size` bytes and the margin free."""
+    import errno
+    import shutil
+    folder = path
+    while not folder.exists() and folder.parent != folder:
+        folder = folder.parent
+    try:
+        free = shutil.disk_usage(folder).free
+    except OSError:
+        return   # cannot be measured: the write itself will say
+    if free < size + BASE_DISK_MARGIN:
+        raise OSError(errno.ENOSPC, f'not enough room to unpack the base ({size} bytes and {BASE_DISK_MARGIN} spare needed)')
 BASE_ORIGINS = ('installer', 'download')
 _GAME_KEY = path_profiles.game_key(SYSTEMS)
 _SHA256 = re.compile(r'[0-9a-f]{64}')
@@ -1174,7 +1210,7 @@ _ENTRY_NAME = re.compile(r'entries/([0-9a-f]{64})\.json')
 
 class BaseArchiveError(ValueError):
     """A base archive that is not what it claims to be (`reason`: 'format',
-    'checksum' or 'incomplete')."""
+    'checksum', 'incomplete' or 'too_large': beyond the bounds this version reads)."""
 
     def __init__(self, reason: str, message: str = ''):
         super().__init__(message or reason)
@@ -1253,11 +1289,11 @@ def _member(archive: zipfile.ZipFile, name: str, limit: int) -> bytes | None:
     except KeyError:
         return None
     if info.file_size > limit:
-        raise BaseArchiveError('format', f'{name} is too large')
+        raise BaseArchiveError('too_large', f'{name} is too large')
     with archive.open(info) as stream:
         raw = stream.read(limit + 1)
     if len(raw) > limit:
-        raise BaseArchiveError('format', f'{name} is too large')
+        raise BaseArchiveError('too_large', f'{name} is too large')
     return raw
 
 
@@ -1268,7 +1304,7 @@ def read_archive_head(archive: zipfile.ZipFile, version: int | None = None) -> d
     `version`, when given), or its index is not the one its manifest names."""
     infos = archive.infolist()
     if len(infos) > BASE_ZIP_MEMBERS or sum(info.file_size for info in infos) > BASE_UNPACKED_LIMIT:
-        raise BaseArchiveError('format', 'the archive is too large')
+        raise BaseArchiveError('too_large', 'the archive is too large')
     try:
         manifest = json.loads(_member(archive, 'manifest.json', BASE_MANIFEST_LIMIT) or b'')
     except ValueError as error:
@@ -1471,6 +1507,7 @@ def apply_base_archive(path: Path, *, version: int, service: str = '', cursor: i
     try:
         with zipfile.ZipFile(path) as archive:
             head = read_archive_head(archive, version)
+            require_room_for(folder, sum(info.file_size for info in archive.infolist()))
             index = head['index']
             wanted = {game['entry'] for game in index['games'].values()}
             installer = (installer_base() or {}).get('entries', frozenset())

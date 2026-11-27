@@ -174,5 +174,36 @@ class DependencyPinMessageTests(unittest.TestCase):
                 self.assertTrue(i18n.catalog(code)['ui'][key])
 
 
+class ProgressLinesInThePlayersLanguageTests(unittest.TestCase):
+    """An English run never prints French (WSL Ubuntu and Fedora test, 27 November 2026): the steps of the shared pieces and
+    the lines of the batch itself go through i18n.log_text, as the conversion's own lines do."""
+
+    def test_the_dependency_steps_are_in_every_language(self):
+        for french, key in i18n.LOG_STEP_KEYS.items():
+            self.assertIn(key, i18n.STRINGS)
+            self.assertEqual(i18n.log_text(french, 'fr'), french)
+            self.assertEqual(i18n.log_text(french, 'en'), i18n.log_text(french), french)
+            self.assertNotEqual(i18n.log_text(french, 'en'), french, french)
+            for code in ('it', 'es', 'de', 'zh', 'ja', 'ru'):
+                self.assertEqual(i18n.log_text(french, code), i18n.catalog(code)['ui'][key], (code, french))
+        self.assertEqual(i18n.log_text('Compilation du traducteur Z80 → C…'), 'Compiling the Z80 → C translator…')
+
+    def test_the_lines_of_core_and_the_build_modules_have_an_english_form(self):
+        for french, english in (
+                ('Niveau de scan standard : 3 parcours pseudo-aléatoires reproductibles de 600 images.',
+                 'Scan level standard: 3 reproducible pseudo-random routes of 600 frames.'),
+                ('Ancien exécutable conservé : Jeu.exe : accès refusé', 'Previous executable kept: Jeu.exe : accès refusé'),
+                ('Données de ScummVM (scumm) : 12 fichiers.', 'ScummVM data (scumm): 12 files.')):
+            self.assertEqual(i18n.log_text(french), english)
+
+    def test_the_command_line_and_the_window_print_the_batch_lines_through_log_text(self):
+        # batch.py and core.py are game inputs: the translation is done where the lines are shown, which moves no stamp.
+        from pathlib import Path as FilePath
+        from retrorecomp import gui_conversion
+        main = (FilePath(__file__).resolve().parents[1] / 'RetroRecomp.py').read_text(encoding='utf-8')
+        self.assertEqual(main.count('emit=lambda text: print(log_text(text, args.language))'), 2)
+        self.assertIn("self.messages.put(('log', log_text(text, self.language)))", inspect.getsource(gui_conversion))
+
+
 if __name__ == '__main__':
     unittest.main()

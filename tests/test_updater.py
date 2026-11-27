@@ -413,3 +413,111 @@ class PinnedDownloadTests(unittest.TestCase):
     def test_a_wrong_file_is_never_fetched_again(self):
         calls, waits, error = self.run_with([ValueError('bad')])
         self.assertEqual((len(calls), waits, str(error)), (1, [], 'bad'))
+
+
+class LinuxPackageCheckTests(unittest.TestCase):
+    """The build packages are checked on Debian and Ubuntu (dpkg-query) and on Fedora and its relatives (rpm), and named for
+    the package manager of the distribution. Faked os-release and package tools: nothing is run or installed."""
+    FEDORA = 'NAME="Fedora Linux"\nVERSION_ID=45\nID=fedora\n'
+    BAZZITE = 'NAME="Bazzite"\nID=bazzite\nID_LIKE="fedora"\nVARIANT_ID=kinoite\n'
+    ROCKY = 'ID="rocky"\nID_LIKE="rhel centos fedora"\n'
+    UBUNTU = 'NAME="Ubuntu"\nID=ubuntu\nID_LIKE=debian\n'
+    MINT = 'ID=linuxmint\nID_LIKE="ubuntu debian"\n'
+    ARCH = 'ID=arch\n'
+
+    def test_the_distribution_is_read_from_os_release(self):
+        from retrorecomp.updater import linux_family
+        with patch('retrorecomp.updater.shutil.which', return_value=None):
+            for text, family in ((self.FEDORA, 'fedora'), (self.BAZZITE, 'fedora'), (self.ROCKY, 'fedora'),
+                                 (self.UBUNTU, 'debian'), (self.MINT, 'debian'), ('ID=debian\n', 'debian'),
+                                 (self.ARCH, None)):
+                self.assertEqual(linux_family(text), family, text)
+
+    def test_the_apt_and_dnf_lists_stay_one_to_one(self):
+        from retrorecomp.updater import DNF_PACKAGES, LINUX_PACKAGES
+        self.assertEqual(len(DNF_PACKAGES), len(set(DNF_PACKAGES)))
+        # build-essential is gcc, gcc-c++ and make; every other apt name has one dnf name.
+        self.assertEqual(len(DNF_PACKAGES), len(LINUX_PACKAGES) + 2)
+        for name in ('gcc', 'gcc-c++', 'make', 'cmake', 'ninja-build', 'pkgconf-pkg-config', 'git', 'curl', 'libX11-devel',
+                     'libXScrnSaver-devel', 'wayland-devel', 'pulseaudio-libs-devel', 'systemd-devel', 'mesa-libgbm-devel',
+                     'dbus-devel', 'alsa-lib-devel', 'libxkbcommon-devel'):
+            self.assertIn(name, DNF_PACKAGES)
+
+    def test_fedora_is_checked_with_rpm_and_names_the_dnf_packages(self):
+        from retrorecomp import updater
+        installed = [name for name in updater.DNF_PACKAGES if name not in ('cmake', 'libXi-devel', 'dbus-devel')]
+        seen = []
+
+        def fake_rpm(command, **options):
+            seen.append(command)
+            lines = [name if name in installed else f'package {name} is not installed' for name in command[4:]]
+            return subprocess.CompletedProcess(command, 1, stdout='\n'.join(lines) + '\n')
+
+        with patch('retrorecomp.updater.linux_family', return_value='fedora'), \
+                patch('retrorecomp.updater.shutil.which', side_effect=lambda name: '/usr/bin/' + name), \
+                patch('retrorecomp.updater.subprocess.run', side_effect=fake_rpm):
+            self.assertEqual(updater._linux_missing_packages(), ['cmake', 'libXi-devel', 'dbus-devel'])
+        self.assertEqual(seen[0][:4], ['rpm', '-q', '--qf', '%{NAME}\n'])
+        self.assertEqual(tuple(seen[0][4:]), updater.DNF_PACKAGES)
+        # Nothing missing, and a system with no rpm: nothing to name.
+        with patch('retrorecomp.updater.linux_family', return_value='fedora'), \
+                patch('retrorecomp.updater.shutil.which', side_effect=lambda name: '/usr/bin/' + name), \
+                patch('retrorecomp.updater.subprocess.run',
+                      return_value=subprocess.CompletedProcess([], 0, stdout='\n'.join(updater.DNF_PACKAGES))):
+            self.assertEqual(updater._linux_missing_packages(), [])
+        with patch('retrorecomp.updater.linux_family', return_value='fedora'), \
+                patch('retrorecomp.updater.shutil.which', return_value=None):
+            self.assertEqual(updater._linux_missing_packages(), [])
+
+    def test_debian_is_still_checked_with_dpkg_query(self):
+        from retrorecomp import updater
+        output = ''.join(f'{name} installed\n' for name in updater.LINUX_PACKAGES if name != 'git')
+        with patch('retrorecomp.updater.linux_family', return_value='debian'), \
+                patch('retrorecomp.updater.shutil.which', side_effect=lambda name: '/usr/bin/' + name), \
+                patch('retrorecomp.updater.subprocess.run',
+                      return_value=subprocess.CompletedProcess([], 1, stdout=output)) as run:
+            self.assertEqual(updater._linux_missing_packages(), ['git'])
+        self.assertEqual(run.call_args.args[0][0], 'dpkg-query')
+
+    def test_missing_build_tools_offers_the_packages_of_the_distribution(self):
+        from retrorecomp import updater
+        with patch('retrorecomp.updater.os.name', 'posix'), patch.object(updater, 'use_installed_tools'), \
+                patch('retrorecomp.updater.shutil.which', return_value='/usr/bin/x'), \
+                patch.object(updater, '_linux_missing_packages', return_value=['cmake']):
+            self.assertEqual(updater.missing_build_tools(), {'packages': ['cmake']})
+
+    def test_the_install_command_is_the_one_of_the_family(self):
+        from retrorecomp import updater
+        self.assertEqual(updater.linux_install_command(['cmake'], 'fedora'),
+                         ['dnf', 'install', '-y', '--setopt=install_weak_deps=False', 'cmake'])
+        self.assertEqual(updater.linux_install_command(['cmake'], 'debian'),
+                         ['apt-get', 'install', '-y', '--no-install-recommends', 'cmake'])
+        self.assertEqual(updater.linux_packages('fedora'), updater.DNF_PACKAGES)
+        self.assertEqual(updater.linux_packages('debian'), updater.LINUX_PACKAGES)
+        with patch('retrorecomp.updater.linux_family', return_value='fedora'):
+            hint = updater.linux_install_hint()
+        self.assertIn('sudo dnf install -y', hint)
+        self.assertIn('pkgconf-pkg-config', hint)
+        with patch('retrorecomp.updater.linux_family', return_value=None):
+            self.assertEqual(updater.linux_install_hint(), '')
+
+    def test_fedora_installs_through_pkexec_dnf_and_an_image_based_system_is_sent_to_a_toolbox(self):
+        from retrorecomp import updater
+        seen = []
+        with patch('retrorecomp.updater.linux_family', return_value='fedora'), \
+                patch('retrorecomp.updater.linux_immutable', return_value=False), \
+                patch('retrorecomp.updater.shutil.which', return_value='/usr/bin/pkexec'), \
+                patch('retrorecomp.updater.subprocess.run',
+                      return_value=subprocess.CompletedProcess([], 0)) as run:
+            updater.install_linux_packages(['cmake'], lambda *args: seen.append(args))
+        self.assertEqual(run.call_args.args[0][:2], ['pkexec', 'dnf'])
+        self.assertEqual(run.call_args.args[0][-1], 'cmake')
+        self.assertEqual(seen, [('Install', 1000, 1000)])
+        with patch('retrorecomp.updater.linux_family', return_value='fedora'), \
+                patch('retrorecomp.updater.linux_immutable', return_value=True), \
+                patch('retrorecomp.updater.subprocess.run') as run:
+            with self.assertRaises(updater.ToolInstallError) as caught:
+                updater.install_linux_packages(['cmake'], lambda *args: None)
+        self.assertIn('toolbox', str(caught.exception))
+        self.assertIn('sudo dnf install', str(caught.exception))
+        run.assert_not_called()

@@ -759,6 +759,7 @@
     "base_error_unavailable": "オンラインサービスが無効になっています。",
     "base_error_format": "ベースはこのバージョンの Retro-Recomp では読めない形式です。Retro-Recomp を更新してください。",
     "base_error_disk": "このコンピューターにベースを書き込めませんでした。",
+    "base_error_toolarge": "ベースのアーカイブがこのバージョンの Retro-Recomp で受け付けられる大きさを超えています。Retro-Recomp を更新してください。",
     "online_outdated": "このバージョンの Retro-Recomp では発見を送信できません。Retro-Recomp を更新してください。発見はここに残り、更新後に送信されます。",
     "online_outdated_min": "サービスは発見の送信に Retro-Recomp {minimum} 以降を必要とします。Retro-Recomp を更新してください。発見はここに残り、更新後に送信されます。",
     "auto_send_done": "共有ベース：{games} 本のゲームの新しい発見を自動で送信しました。",

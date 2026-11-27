@@ -143,6 +143,9 @@ class SharingMixin:
         """A service or file error in one short, translated phrase."""
         if isinstance(error, (online.ServiceError, online.ServiceConnectionError)):
             return self.online_message(error)
+        named = shared_batch.base_problem(error, self.tr)
+        if named:
+            return named
         return str(error) or type(error).__name__
 
     # --- The shared base around each batch -----------------------------------
@@ -218,7 +221,8 @@ class SharingMixin:
         if result.get('error'):
             reason = {'offline': 'online_unreachable', 'unavailable': 'base_error_unavailable',
                       'no_base': 'base_error_nobase', 'no_path': 'base_error_nopath', 'format': 'base_error_format',
-                      'verify': 'base_error_verify', 'disk': 'base_error_disk'}.get(result['error'], 'online_refused')
+                      'verify': 'base_error_verify', 'disk': 'base_error_disk',
+                      'too_large': 'base_error_toolarge'}.get(result['error'], 'online_refused')
             problem = self.tr(reason, reason=result['error']) if reason == 'online_refused' else self.tr(reason)
             return self.tr('base_update_failed', error=problem)
         if result.get('source'):

@@ -158,6 +158,15 @@ behind, first open **Options > Common > Disk space** in Retro-Recomp and use
 **Remove build tools and caches** (see below), then remove the package; your
 games, settings and discoveries stay in `~/.local/opt/Retro-Recomp`.
 
+**Fedora and relatives (Rocky, Alma; Bazzite):** use the `.tar.gz` or the per-user
+`.run` installer below. Converting needs build packages; Retro-Recomp checks them
+with `rpm -q` and, with your consent, installs the missing ones through
+`pkexec dnf install`. To do it yourself, the command is in
+[LINUX.md](LINUX.md). On **Bazzite**, an image-based system
+where `dnf install` does not apply to the system, install them in a toolbox or
+distrobox container and run Retro-Recomp there. Bazzite itself has not been
+tested.
+
 **Any distribution (per-user `.run` installer):** download
 `Retro-Recomp-<version>-linux-x86_64-install.run` from the same release. Browsers
 remove the execute permission from downloads, so a double-click does nothing:
