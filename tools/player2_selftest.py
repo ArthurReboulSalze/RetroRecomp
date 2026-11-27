@@ -24,6 +24,9 @@ def main():
     rom = directory / "Two_controller_ports.sms"
     rom.write_bytes(data)
     os.environ["RETRO_RECOMP_LIBRARY_DIR"] = str(directory / "library")
+    # The authored program draws nothing: the refusal of a play route whose picture never changes (sega_evidence, 1.6.6)
+    # does not apply to it, as in tools/cpu_selftest.py.
+    os.environ['RETRO_RECOMP_STILL_ROUTE_OK'] = '1'
     engine, sdl, cmake, generator = dependencies()
     results = []
     for backend in ("functions", "banked"):

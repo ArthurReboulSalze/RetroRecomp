@@ -47,6 +47,9 @@ def main():
     directory.mkdir(parents=True, exist_ok=True)
     learning = Path(tempfile.mkdtemp(prefix="learning-run-", dir=directory))
     os.environ["SMSRECOMP_LIBRARY_DIR"] = str(learning)
+    # The authored program draws nothing: the refusal of a play route whose picture never changes (sega_evidence, 1.6.6)
+    # does not apply to it, as in tools/cpu_selftest.py.
+    os.environ['RETRO_RECOMP_STILL_ROUTE_OK'] = '1'
     # Output exports intentionally seed later conversions. Clear only the
     # authored fixtures' pattern exports so each full test starts cold.
     for pattern_name in ("native.patterns", "native-patterns.txt"):
