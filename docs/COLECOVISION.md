@@ -152,7 +152,10 @@ What is checked, and what each check covers (the five measures stay apart):
 read on a panel of eight games: `Y` on every gate that applies except G11 (hardware proof: `P`, MAME comparisons only, no hardware), `-` on G7 (no
 cartridge save) and on G16 (path sharing declined: nothing to share, 0 interpreted steps and no learned pattern on the 16 games of the two panels).
 Windows and a witness on Debian 13 in WSL (`linux = 'witnessed'`: Bump 'N' Jump, Pitfall II and Ken Uston converted there equal to Windows, field
-for field); a Linux PC with a real display is not covered.
+for field); a Linux PC with a real display is not covered. Witnessed again on 27 November 2026 on the release candidate's tree (`738e8075`, which
+has F5 and the F3 looks): Donkey Kong and Bump 'N' Jump converted in WSL equal Windows' on every compared field of both routes and on the
+snapshot digests of two probes each, 0 interpreted steps. The replays are headless: the window, the looks and F5 on a Linux screen were not
+exercised.
 
 **Release notes (draft for the release page).** *ColecoVision (new, supported): cartridges of 4 to 32 KiB with your own BIOS, translated to native
 code and checked against a reference interpreter in every conversion; two controllers with their keypads (an on-screen keypad on a gamepad), quick
