@@ -362,6 +362,9 @@ keyboard defaults moved to S D F / E R T by position (1.7.6) it expects `SDL_SCA
 (`ALL`), so **the game stamp of every machine** (the 27 profiles) moves, and the Mega Drive's and the Super Nintendo's quick-state keys
 (they hash the console's non-host native files). Both already move this release (the feedback-kind header above), so no export is
 converted once more and no further quick state is refused. A game's code is unchanged. Its alias `tools/data_selftest.py` is removed.
+`native/neogeo_controls_checks.c` (a Neo Geo game input, never compiled into a game) is repaired the same way: S and D, the Neo Geo's
+multiplayer hooks stubbed, and the shell around the input module from `tools/hostkit_shell_stubs.h`, one header shared with
+`tools/autofire_selftest.py`. It moves the Neo Geo's game stamp, which already moves with every other this release.
 
 ## Game Boy Color: the F1 help offers no palette key (1.10.0)
 
