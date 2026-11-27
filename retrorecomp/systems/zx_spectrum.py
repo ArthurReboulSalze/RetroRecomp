@@ -61,10 +61,9 @@ class ZxSpectrumProfile(SystemProfile):
     quick_state_family = 'zxs'
     # The player's window on the host kit (a computer adapter, as the MSX's); no multiplayer hooks yet (step 3).
     host_adapter = 'adapters/rrhk_zxs.inc'
-    # No runtime-feedback kind yet: nothing is recorded. The lead reserves the new machines' kinds in native/runtime_feedback.h in
-    # one change (28 for this machine), with the release that first needs one, so that every machine's stamp moves once
-    # (tests/test_machine_registry.py, DECLINED['feedback_kind']).
-    feedback_kinds = frozenset()
+    # RR_FB_ZXS in native/runtime_feedback.h, reserved with the SG-1000's, the ColecoVision's and the CPC's in one change (1.10.0) so
+    # that every machine's stamp moved once. Nothing is recorded under it yet: the game never starts the recorder, as on the MSX.
+    feedback_kinds = frozenset({28})
     fallback_display = 'cycles'
     # The banked Z80 chain's generator and core, the counted fallback's reference interpreter, and the ROMs' permission notice
     # (every game holds a Spectrum ROM, the player's own or the pinned one).

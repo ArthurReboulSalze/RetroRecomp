@@ -297,6 +297,30 @@ for **1,264**, and 21 of the 46 CPS-1 and CPS-2 games now take their own set's e
 **Stamps** (against main `a5e9179f`): the host stamp of all 21 profiles; the game stamps of the CPS-1, CPS-2, Neo Geo and
 both Amigas (`capcom_sets.py`, `cps1.py`, `cps2.py` and the profiles for the arcade boards); build stamps unchanged; no native file, so no quick-state key moves. Every stamp has already moved since 1.8.0.
 
+## Every machine: feedback kinds 28 to 31 reserved for the ZX Spectrum, SG-1000, ColecoVision and Amstrad CPC (next release)
+
+`native/runtime_feedback.h` reserves `RR_FB_ZXS` 28, `RR_FB_SG1000` 29, `RR_FB_COLECO` 30 and `RR_FB_CPC` 31, and `RR_FB_MAX_KIND` goes
+from 27 to 31. The four profiles declare them (`feedback_kinds`), so `retrorecomp/feedback.py` reads and writes them like the others, and
+the registry no longer lists a machine waiting for its kind (`DECLINED['feedback_kind']` of `tests/test_machine_registry.py` is empty).
+The four are reserved in one change so that this header moves every stamp once, not once per machine.
+
+**A kind obliges no record.** None of the four games starts the recorder, as on the MSX, MSX2 and MSX2+ (kinds 26 and 27, supported
+since 1.7.5 and 1.7.6 with nothing recorded): the F12 row stays OFF and no file is written. What these machines learn comes from the
+conversion's own routes (`native.patterns`) and, where paths are shared, from the path record ([RUNTIME_FEEDBACK.md](RUNTIME_FEEDBACK.md)).
+
+**What moves** (every profile compared, `compilation_inputs.role_stamps`, against main `9ce0f3a6`):
+- **the game stamp of every machine** (the 27 profiles): `native/runtime_feedback.h` is a game input of every console (`ALL`), and the
+  four profiles' files move theirs too;
+- no host stamp and no build stamp.
+
+**What a game's code gains.** The converter generates the same sources; the header is copied beside them. The only compiled change is the
+guard of `rr_feedback_note` in `native/runtime_feedback.c`, the one user of `RR_FB_MAX_KIND`: the object of that file differs in two
+immediates, the range check of the kind from 1-27 to 1-31 (clang `-O2`), nothing else. A game of an older machine notes only its own kinds,
+all below 28, so the guard lets through and refuses exactly what it did. An export of the previous release therefore differs from a fresh
+one by those bytes alone, with the same behaviour: its game stamp belongs in `LEGACY_GAME_STAMPS` at the release.
+
+**Quick states and hot path:** unchanged (no state field, no new call).
+
 ## Game Boy Color: the F1 help offers no palette key (next release)
 
 A Color game keeps its own colours: its options window has no palette row and F5 only shows a notice, yet the F1 help still listed « F5 Monochrome / classic green ». It is listed
