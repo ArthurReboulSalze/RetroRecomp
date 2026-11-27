@@ -96,6 +96,9 @@ that converts a real game needs the player's own ROM, outside the repository.
 - Text files are LF (`.gitattributes`). A user-visible string is translated in
   the eight interface languages; characters must exist in the font subsets
   (`tests/test_languages.py` checks this).
+- **A test run never writes the real `Export/datas`.** `paths.data_directory()` gives a unittest, pytest, `tests/` script,
+  self-test or `gui_smoke` process a scratch folder (and `RETRO_RECOMP_DATA_DIR` redirects any tool);
+  `tests/test_data_directory_guard.py` checks it. A tool outside these still needs the variable.
 - Do not push, publish or release without being asked.
 
 ## Where to read next

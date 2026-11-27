@@ -59,8 +59,63 @@ def preferred_games_root(preferences: dict) -> tuple[Path, bool]:
     return (chosen if custom else games_root()), bool(custom)
 
 
+DATA_DIRECTORY_VARIABLE = 'RETRO_RECOMP_DATA_DIR'
+_TEST_FLAG = 'RETRO_RECOMP_TESTING'
+_TEST_SCRATCH: list[Path] = []
+
+
+def real_data_directory() -> Path:
+    """The player's own datas folder, whatever redirect is active (the one a test must never write)."""
+    return export_directory() / "datas"
+
+
+def running_tests() -> bool:
+    """True for a unittest or pytest run, for the self-tests that say so (RETRO_RECOMP_TESTING=1) and for a script of tests/ and the self-tests and gui_smoke of tools/.
+
+    Never for a packaged application. The check reads how the process was started, so importing unittest
+    (the converter's own tools do) is not enough to count as a test run."""
+    if getattr(sys, 'frozen', False):
+        return False
+    if os.environ.get(_TEST_FLAG) == '1':
+        return True
+    launch = getattr(sys, 'orig_argv', sys.argv)
+    if '-m' in launch[:-1] and launch[launch.index('-m') + 1].split('.')[0] in ('unittest', 'pytest'):
+        return True
+    script = getattr(sys.modules.get('__main__'), '__file__', None)
+    if not script:
+        return False
+    script = Path(script).resolve()
+    return script.parent == ROOT / 'tests' or (
+        script.parent == ROOT / 'tools' and (script.name.endswith('_selftest.py') or script.name == 'gui_smoke.py'))
+
+
+def _test_scratch_directory() -> Path:
+    """One scratch datas folder per test process, removed at exit; children inherit it through the environment."""
+    if not _TEST_SCRATCH:
+        import atexit
+        import shutil
+        folder = Path(tempfile.mkdtemp(prefix='retro-recomp-test-datas-')) / 'datas'
+        folder.mkdir()
+        atexit.register(shutil.rmtree, folder.parent, True)
+        _TEST_SCRATCH.append(folder)
+        os.environ[DATA_DIRECTORY_VARIABLE] = str(folder)
+    return _TEST_SCRATCH[0]
+
+
 def data_directory(root: Path | None = None) -> Path:
-    return (root or export_directory()) / "datas"
+    """The datas folder: `root`/datas when a root is given, else RETRO_RECOMP_DATA_DIR (a scratch folder for a
+    tool or a test), else - in a test run - a scratch folder of its own, else Export/datas.
+
+    A test run therefore never reaches the player's real folder through this resolver: the preferences, the
+    account and shop caches, the cover caches and the library all land in the scratch one."""
+    if root:
+        return root / "datas"
+    chosen = os.environ.get(DATA_DIRECTORY_VARIABLE)
+    if chosen:
+        return Path(chosen)
+    if running_tests():
+        return _test_scratch_directory()
+    return real_data_directory()
 
 
 def selected_bios_path(value: str | Path | None) -> Path | None:

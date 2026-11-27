@@ -254,7 +254,7 @@ retrorecomp/gui_estimates.py retrorecomp/time_estimates.py assets/conversion-tim
 retrorecomp/gui_firmware.py retrorecomp/firmware_search.py tests/test_firmware_search.py
 retrorecomp/gui_covers.py tests/test_gui_covers.py
 retrorecomp/gui_front_end.py retrorecomp/front_end.py retrorecomp/front_end_view.py tests/test_front_end.py retrorecomp/gui_icons.py
-retrorecomp/gui_multiplayer.py retrorecomp/multiplayer_view.py tests/test_multiplayer_view.py tests/test_toolbar.py retrorecomp/rounded_ui.py retrorecomp/rounded_skin.py tests/test_rounded_skin.py tests/test_window_scale.py tests/test_window_fit.py tests/tk_cleanup.py
+retrorecomp/gui_multiplayer.py retrorecomp/multiplayer_view.py tests/test_multiplayer_view.py tests/test_toolbar.py retrorecomp/rounded_ui.py retrorecomp/rounded_skin.py tests/test_rounded_skin.py tests/test_window_scale.py tests/test_window_fit.py tests/tk_cleanup.py tests/test_data_directory_guard.py
 retrorecomp/game_logs.py tests/test_game_logs.py
 retrorecomp/closing_card_view.py tests/test_closing_card.py
 retrorecomp/gui_welcome.py retrorecomp/announcement.py tests/test_announcement.py retrorecomp/tk_threads.py retrorecomp/tk_later.py
