@@ -273,7 +273,9 @@ The page of each console, which the README links its line to (a console of the m
   - **G8 and G9 stay `P`**: seven of the eight panel games animate to the end of their play route, and Elite's snapshot halts in
     its own decryption (in MAME 0.289 too; its report says `route_stop`). Routes are random, with an 18,000-frame route on four
     games.
-  - Not done: a two-PC multiplayer test of a Spectrum game. The game records nothing of the player's play (its
+  - Multiplayer on two PCs: Manic Miner passed the multiplayer specialist's harness on 27 November 2026 (the same commit on
+    both PCs, « 2 ports » on each side, 50 digests equal). A two-player Spectrum game on two PCs and the owner's own play on two
+    PCs are not done. The game records nothing of the player's play (its
     runtime-feedback kind, 28, is reserved; the F12 row stays OFF, as on the MSX), so code past the routes stays interpreted and
     counted. Not claimed: hardware fidelity, gameplay validation, physical latency.
 
