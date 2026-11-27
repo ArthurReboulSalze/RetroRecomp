@@ -1188,13 +1188,14 @@ INPUTS = _resolve({
         'retrorecomp.pcecd',
         'retrorecomp.pcecd_build',
         'retrorecomp.pcecd_card',
-        'retrorecomp.pcecd_chd',
         'retrorecomp.pcecd_conversion',
         'retrorecomp.pcecd_disc',
         'retrorecomp.pcecd_routes',
     ),
     ('psx', 'pcecd'): (
         'retrorecomp.psx_disc',
+        # the pure-Python CHD reader and its numbering of sectors (moved from pcecd_chd for the PlayStation's CHD discs)
+        'retrorecomp.cd_chd',
     ),
     # The start chosen among variants played on the reference (route_start, lifted from pce_conversion on 12 November 2026):
     # the PC Engine and the MSX family call it.

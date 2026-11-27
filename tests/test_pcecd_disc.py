@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from retrorecomp import pcecd, pcecd_card, pcecd_chd, pcecd_disc  # noqa: E402
+from retrorecomp import cd_chd, pcecd, pcecd_card, pcecd_disc  # noqa: E402
 from retrorecomp.systems import registry, UnsupportedConsoleError  # noqa: E402
 
 FRAME, SECTOR, SYNC = 2448, 2352, b'\x00' + b'\xff' * 10 + b'\x00'
@@ -305,20 +305,20 @@ class DiscReaderTests(unittest.TestCase):
         # (and the CRC of the file's map) work on the whole sector
         frames = [bytearray(raw_sector(bytes([n]) * 2048, n)) for n in range(8)]
         for sector in frames[:2]:
-            pcecd_chd._ecc_generate(sector)
+            cd_chd._ecc_generate(sector)
         whole = b''.join(bytes(s) for s in frames)
         stripped = bytearray(whole)
         for n in range(2):
             stripped[n * SECTOR:n * SECTOR + 12] = bytes(12)
-            stripped[n * SECTOR + pcecd_chd._ECC_P_OFFSET:(n + 1) * SECTOR] = bytes(SECTOR - pcecd_chd._ECC_P_OFFSET)
+            stripped[n * SECTOR + cd_chd._ECC_P_OFFSET:(n + 1) * SECTOR] = bytes(SECTOR - cd_chd._ECC_P_OFFSET)
         base = _deflate(bytes(stripped))
         packed = bytes([0b00000011]) + len(base).to_bytes(2, 'big') + base + _deflate(bytes(96 * 8))
-        chd = object.__new__(pcecd_chd.Chd)
+        chd = object.__new__(cd_chd.Chd)
         chd.hunk_bytes, chd.path = 8 * FRAME, Path('synthetic.chd')
         decoded = chd._compressed('cdzl', packed)
         for n in range(8):
             self.assertEqual(decoded[n * FRAME:n * FRAME + SECTOR], whole[n * SECTOR:(n + 1) * SECTOR], n)
-        self.assertNotEqual(whole[pcecd_chd._ECC_P_OFFSET:SECTOR], bytes(SECTOR - pcecd_chd._ECC_P_OFFSET))
+        self.assertNotEqual(whole[cd_chd._ECC_P_OFFSET:SECTOR], bytes(SECTOR - cd_chd._ECC_P_OFFSET))
 
     def test_a_corrupted_hunk_is_refused_by_its_checksum(self):
         path = self.containers()['v5 cdzl']
@@ -332,9 +332,9 @@ class DiscReaderTests(unittest.TestCase):
             pcecd_disc.describe(path)
 
     def test_a_hunk_of_the_audio_codec_is_named_not_guessed(self):
-        chd = object.__new__(pcecd_chd.Chd)
+        chd = object.__new__(cd_chd.Chd)
         chd.path, chd.hunk_bytes = Path('x.chd'), 19584
-        with self.assertRaises(pcecd_chd.ChdCodecError):
+        with self.assertRaises(cd_chd.ChdCodecError):
             chd._compressed('cdfl', b'\0' * 64)
 
     def test_a_disc_without_the_boot_record_belongs_to_somebody_else(self):
