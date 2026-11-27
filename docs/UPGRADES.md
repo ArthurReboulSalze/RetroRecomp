@@ -484,6 +484,19 @@ upgraded, never rediscovered. The previous release ignores the two new keys.
 
 ## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (1.10.0)
 
+## PC Engine CD: a new memory starts formatted, and a disc records nothing (next release)
+
+Two changes in files the HuCard games also compile (`native/pce_machine.cpp`, `native/pce_main.c`, `retrorecomp/pce_conversion.py`):
+- a disc game without a save file now finds a **formatted** backup memory (the file system header, nothing stored), as a HuCard game, Beetle and MAME do. A blank memory made Dungeon Explorer II refuse to
+  create a save (« please initialize backup RAM »). One function (`format_backup`) now serves both;
+- a disc game keeps **no player's record** (F12 is off): the code a player reaches past the routes is loaded from the disc and a disc conversion never used the record.
+
+The PC Engine CD also becomes **supported** (its profile, [PC_ENGINE_CD.md](PC_ENGINE_CD.md) section 8). Measured against `0d782840` (`compilation_inputs.role_stamps`, all 27 machines): **the PC Engine game stamp** and
+**the PC Engine CD game stamp** move; no host or build stamp and no other machine's stamp. A PC Engine export is converted again once with the same result (the HuCard's memory and record are unchanged). PC Engine CD
+exports (none released) are converted again; their save files are read as before.
+
+## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (next release)
+
 Owner's report of 27 November 2026 (Alex Kidd in Miracle World): with player 1 pinned to his first pad on F2's Gamepad
 row, another pad, or the same pad on another USB port, answered the menus but never the game. Player 1 waited for the
 pinned pad, and the same pad came back under another GUID (another CRC of its name, another SDL driver), so it never

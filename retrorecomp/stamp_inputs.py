@@ -278,6 +278,7 @@ NOT_INPUTS = (
     'native/x68000_vector_checks.c', 'native/gb_sm83_vector_checks.c', 'native/pce_huc6280_vector_checks.cpp',
     'native/pce_huc6280_native_checks.cpp', 'native/pce_snapshot_checks.cpp',
     'native/pcecd_disc_checks.cpp',                 # tools/pcecd_disc_selftest.py: the disc provider against two readers, never in a game
+    'native/pcecd_mame_probe.cpp',                  # tools/pcecd_mame_compare.py: the drive against MAME, never in a game
     'native/msx_machine/msx_fdc_checks.c',          # tools/msx_fdc_selftest.py: the disk controller's checks, never in a game
     # The box filter of the sound chips (levels over guest cycles to samples): its header is the group `shares:audio_box` (the SG-1000 is the
     # first machine to build with it). tools/audio_box_selftest.py builds its checks, never in a game.
@@ -1177,7 +1178,7 @@ INPUTS = _resolve({
         'retrorecomp.pce_knowledge',
         'retrorecomp.pce_rom',
     ),
-    # The PC Engine CD (experimental, docs/PC_ENGINE_CD.md): its disc and System Card readers, the CHD reader, its input module and
+    # The PC Engine CD (docs/PC_ENGINE_CD.md): its disc and System Card readers, the CHD reader, its input module and
     # its report writer. The disc reader of the CUE and ISO containers is the PlayStation's (shared below).
     ('pcecd',): (
         'native/pcecd_disc.cpp',

@@ -1,4 +1,4 @@
-"""PC Engine CD conversion (experimental; docs/PC_ENGINE_CD.md). Retro-Recomp's own code, MIT.
+"""PC Engine CD conversion (docs/PC_ENGINE_CD.md). Retro-Recomp's own code, MIT.
 
 The conversion of a disc is the PC Engine's (retrorecomp/pce_conversion.py) with a disc and the player's System Card in place of a HuCard: every route runs
 twice in the same build of the game, once with every instruction forced through the engine's interpreter (`--reference`, the fresh reference) and once with
@@ -71,7 +71,8 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     from .feedback import ingest
-    feedback = ingest('pcecd', item.sha256, output, emit=emit)
+    # A disc game keeps no player's record (native/pce_main.c): the code a player reaches past the routes is loaded from the disc and the conversion would not use it.
+    feedback = {**ingest('pcecd', item.sha256, output, emit=emit), 'recording_default': False, 'recording': 'not available on a disc'}
     plan_frames = max(600, min(int(frames or 3600), 10000))
     plan = hu.routes(item.sha256, frames=plan_frames, level=level)
     route_start = None
@@ -246,7 +247,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
         phase = time.perf_counter()
         emit('PC Engine CD: checking the Backup RAM file in fresh processes and setting damaged files aside.')
         with stages.phase('state_checks'):
-            backup = hu.check_backup(packed, checks / 'backup', play[1], scripts['play'], item.sha256, formatted=bytes(hu.BACKUP_BYTES))
+            backup = hu.check_backup(packed, checks / 'backup', play[1], scripts['play'], item.sha256)
         timings['backup_checks'] = round(time.perf_counter() - phase, 3)
     checks_rows = []
     for name, count, text in plan:
@@ -292,7 +293,7 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
                               'validation': states},
               'backup_ram': {'supported': True, 'bytes': hu.BACKUP_BYTES, 'file': 'datas/saves/<game>-<disc>.rrsram',
                              'compatibility': 'exact disc; survives a rebuild of the game', 'model': 'the System Card\'s backup memory (2 KiB at bank $F7, locked until a game asks)',
-                             'formatted_without_a_save': 'blank: the System Card formats it when a game asks', 'validation': backup},
+                             'formatted_without_a_save': 'the file system header HUBM 00 88 10 80, then zeros, as Beetle and MAME start it', 'validation': backup},
               'artwork': prepared['artwork'], 'windows_metadata': prepared['windows_metadata'], 'executable': executable_name(title),
               'build_executable': str(delivered_exe), 'toolchain': toolchain_description(), 'build_directory': str(project), **delivered.report_fields(),
               'scan_level': level, 'conversion_phases_seconds': timings, 'conversion_wall_seconds': round(time.perf_counter() - started, 3),
@@ -304,6 +305,6 @@ def convert(path, *, title=None, output=None, cover=None, use_cover=True, online
     summary = library_root('pcecd') / item.sha256 / 'compilation.json'
     summary.parent.mkdir(parents=True, exist_ok=True)
     atomic_json(summary, {'schema': 1, 'title': title, 'system': 'pcecd', 'game': item.sha256, 'rom_sha256': item.sha256, 'private_development_only': True,
-                          'fresh_reference_passed': True, 'record': None, 'record_source': 'none: no path is shared or recorded for a disc yet'})
+                          'fresh_reference_passed': True, 'record': None, 'record_source': 'none: a disc game records nothing and shares no path'})
     emit(f'PC Engine CD: {title} ready ({"no interpreter on the routes played" if native_coverage else "interpreter fallback reported"}).')
     return delivered_exe

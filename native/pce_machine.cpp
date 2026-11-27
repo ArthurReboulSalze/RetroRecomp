@@ -231,6 +231,14 @@ template <class Body> int guarded(char *error, std::size_t size, Body body) {
     }
     return 0;
 }
+
+// The memory a game finds without a save, on a HuCard and on a disc alike: formatted as Beetle and MAME start it, the file system header and nothing stored. A
+// real unit starts as it was left; a game may refuse an unformatted one and send the player to the System Card's own screen (Dungeon Explorer II does).
+void format_backup() {
+    static constexpr std::uint8_t kFormatted[8] = {'H', 'U', 'B', 'M', 0x00, 0x88, 0x10, 0x80};
+    recipe.backup.fill(0);
+    std::copy(std::begin(kFormatted), std::end(kFormatted), recipe.backup.begin());
+}
 }  // namespace
 
 extern "C" {
@@ -246,11 +254,7 @@ int pce_machine_init(const uint8_t *file, size_t size, int copier_header, int bi
         recipe.profile = board == PCE_BOARD_SF2 ? pce::HuCardProfile::sf2 : pce::HuCardProfile::base;
         recipe.buttons = unsigned(pad_buttons);
         recipe.multitap = multitap != 0;
-        // Without a save, the memory is formatted as Beetle formats it on a HuCard: the file system header, nothing stored. A
-        // player with only the card has no CD System Card screen to format it with.
-        static constexpr std::uint8_t kFormatted[8] = {'H', 'U', 'B', 'M', 0x00, 0x88, 0x10, 0x80};
-        recipe.backup.fill(0);
-        std::copy(std::begin(kFormatted), std::end(kFormatted), recipe.backup.begin());
+        format_backup();
         machine = build();
         last_sequence = machine->bus.vdc.video.sequence();
         frames = cropped_frames = 0;
@@ -277,7 +281,7 @@ int pce_machine_init_disc(const PceDiscRecipe *given, char *error, size_t error_
         recipe.unknown_status = given->unknown_status;
         recipe.buttons = unsigned(given->pad_buttons);
         recipe.multitap = given->multitap != 0;
-        recipe.backup.fill(0);                                  // a memory nobody formatted: the System Card formats it when a game asks
+        format_backup();
         machine = build();
         last_sequence = machine->bus.vdc.video.sequence();
         frames = cropped_frames = 0;
