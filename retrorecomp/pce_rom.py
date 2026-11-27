@@ -136,6 +136,11 @@ def file_bytes(path) -> bytes:
         raise PcEngineRomError('The PC Engine profile reads .pce HuCard images, loose or alone in a ZIP.')
     if len(data) > MAX_FILE_BYTES:
         raise PcEngineRomError('The HuCard image exceeds 2.5 MiB (plus a 512-byte header).')
+    from .pcecd_card import known_card
+    card = known_card(data)
+    if card is not None:
+        raise PcEngineRomError(f'This file is the {card.name} {card.version} ({card.region}), the System Card of the PC Engine CD: '
+                               'firmware, not a game. Give it to the PC Engine CD options, never to the games.')
     return data
 
 

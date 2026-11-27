@@ -64,6 +64,14 @@ class Card:
         return blob
 
 
+def known_card(data: bytes) -> KnownCard | None:
+    """The table's entry for these bytes (by size and SHA-1), None when they are no known System Card: what the HuCard reader asks
+    so that a card dropped as a `.pce` is not converted as a game. `identify` is the same check on a file."""
+    if len(data) != CARD_BYTES:
+        return None
+    return BY_SHA1.get(hashlib.sha1(data).hexdigest())
+
+
 def identify(path: Path) -> Card:
     path = Path(path)
     size = path.stat().st_size

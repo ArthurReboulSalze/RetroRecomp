@@ -89,5 +89,39 @@ class SnesFirmwareTests(FirmwareCase):
         self.refused(self.make('mini.smc', game), 'Sufami Turbo', 'not supported')
 
 
+class PcEngineFirmwareTests(FirmwareCase):
+    """The System Card is known by its SHA-1 (retrorecomp/pcecd_card.py, the table the firmware search reads too). An authored image
+    cannot have that hash, so the table is patched with the authored image's own: the rule under test is the lookup."""
+
+    def card_image(self) -> bytes:
+        data = bytearray(256 * 1024)
+        data[0x1FFE:0x2000] = (0xE000).to_bytes(2, 'little')   # bank 0's reset vector, on a SEI: it passes as a HuCard
+        data[0] = 0x78
+        return bytes(data)
+
+    def test_a_known_system_card_dropped_as_a_pce_is_firmware(self):
+        import hashlib
+        from unittest.mock import patch
+        from retrorecomp import pcecd_card
+        image = self.card_image()
+        known = pcecd_card.KnownCard(hashlib.sha1(image).hexdigest(), 'Super System Card', '3.0', 'japan', 'panel')
+        with patch.dict(pcecd_card.BY_SHA1, {known.sha1: known}):
+            self.refused(self.make('syscard3.pce', image), 'System Card of the PC Engine CD', 'not a game')
+
+    def test_a_256_kib_cartridge_that_is_no_known_card_is_still_a_game(self):
+        self.accepted(self.make('game.pce', self.card_image()), 'pce')
+
+    def test_the_firmware_search_still_finds_the_card(self):
+        import hashlib
+        from unittest.mock import patch
+        from retrorecomp import firmware_search, pcecd_card
+        image = self.card_image()
+        known = pcecd_card.KnownCard(hashlib.sha1(image).hexdigest(), 'Super System Card', '3.0', 'japan', 'panel')
+        path = self.make('syscard3.pce', image)
+        with patch.dict(pcecd_card.BY_SHA1, {known.sha1: known}):
+            hits = firmware_search.CHECKS['pcecd'].identify(path)
+        self.assertEqual([hit[0] for hit in hits], ['pcecd_system_card'])
+
+
 if __name__ == '__main__':
     unittest.main()
