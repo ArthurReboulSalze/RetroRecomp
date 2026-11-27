@@ -8,6 +8,7 @@ from pathlib import Path
 
 from retrorecomp import psx, psx_disc, psx_pack
 from retrorecomp.core import ConversionError
+from retrorecomp.systems import UnsupportedConsoleError, profile_for_path
 
 from tests.test_psx_disc import SECTOR, audio_track, raw_sector, user_sectors
 
@@ -127,6 +128,36 @@ class ChdTwins(unittest.TestCase):
         write_chd(odd, [('MODE2_FORM1', bytes(8 * SECTOR), 0)])
         with self.assertRaisesRegex(psx_disc.DiscError, 'MODE2_FORM1'):
             psx_disc.open_disc(odd)
+
+
+class DiscsOfOtherMachines(unittest.TestCase):
+    """A disc is claimed by what it holds, for every container the PlayStation and the PC Engine CD accept: a disc of another
+    machine (a Saturn image, a Sega CD, Neo Geo CD or Dreamcast CHD) is refused, never labelled by its extension (the audit of
+    27 November 2026, .build/auto-detect-audit; tests/test_auto_detection.py on lead/auto-detect-audit marks the same cases)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+
+    def make(self, relative: str, data: bytes) -> Path:
+        path = self.dir / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        return path
+
+    def test_a_chd_that_is_no_supported_disc_is_refused(self):
+        header = b'MComprHD' + struct.pack('>I', 124) + struct.pack('>I', 5) + bytes(200)
+        with self.assertRaises(UnsupportedConsoleError):
+            profile_for_path(self.make('segacd/game.chd', header))
+
+    def test_disc_images_only_the_playstation_lists_are_refused_by_content(self):
+        for name in ('saturn/game.img', 'any/game.ccd'):
+            with self.subTest(name), self.assertRaisesRegex(UnsupportedConsoleError, 'not a disc of a supported machine'):
+                profile_for_path(self.make(name, bytes(300000)))
+        # an EBOOT is the PlayStation's own container: its reader says what is wrong with it
+        with self.assertRaisesRegex(UnsupportedConsoleError, 'not an EBOOT'):
+            profile_for_path(self.make('psp/EBOOT.pbp', bytes(300000)))
 
 
 if __name__ == '__main__':

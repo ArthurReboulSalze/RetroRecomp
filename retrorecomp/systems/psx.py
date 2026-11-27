@@ -93,6 +93,13 @@ class PlayStationProfile(SystemProfile):
             raise ConsoleMismatchError('Detected Sony PlayStation; choose Automatic or Sony PlayStation.', self.id)
         return self
 
+    def refine_match(self, path: Path, data: bytes | None):
+        """The extension stage names this machine for a `.img`, `.ccd` or `.pbp` that its content check (identify_path) has
+        already left: a Saturn image, a PSP EBOOT, another machine's CloneCD dump. A disc is the PlayStation's by what it holds,
+        never by its extension, so the file is refused with that reason instead of being labelled a PlayStation disc."""
+        raise UnsupportedConsoleError(f'{path.name} is not a disc of a supported machine: a disc is recognised by what it holds '
+                                      '(a PlayStation volume and its SYSTEM.CNF, a PC Engine CD boot sector), and this one holds neither.')
+
     def read_rom(self, path: Path):
         from ..psx import read_input
         return read_input(path)
