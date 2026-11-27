@@ -5,12 +5,16 @@
 - **ZX Spectrum**, supported ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)): 16K, 48K and 128K snapshots (`.z80` versions 1 to 3, `.sna`, or a
   ZIP holding one). The Spectrum's own ROM is fetched once from a pinned source under Amstrad's permission, or is your own. Not
   converted: tapes, the +2A, the +3, disks.
-  - The ULA's memory and I/O contention, from published timings; the floating bus sampled inside the I/O cycle (Arkanoid no longer
-    freezes, and runs at its speed).
-  - The pad is the joystick the snapshot was saved for (cursor keys, Kempston, Interface 2), from reviewed data per snapshot (Head
-    over Heels on Interface 2, Match Day II on its Kempston), which also start the menu games; a game that polls the Fuller port reads an idle box (Match Day II's
-    menu cursor no longer drifts). Ctrl+Alt+K gives the keyboard to the game.
-  - Arkanoid's paddle runs faster to the right than to the left on a pad: that is the game's own code, checked against MAME 0.289.
+  - The ULA's memory and I/O contention, and the floating bus sampled at the end of the I/O cycle, from published timings:
+    Arkanoid, which syncs on it, runs at its speed.
+  - The pad is the joystick of the snapshot's header (cursor keys, Kempston, Interface 2), or reviewed data when the game's own
+    menu uses another (Head over Heels on Interface 2, Match Day II on its Kempston); a game that polls the Fuller port reads an
+    idle box (Match Day II's menu cursor does not drift). Ctrl+Alt+K gives the keyboard to the game. Reviewed start presses let the
+    conversion's routes reach play on three games.
+  - Arkanoid's paddle is faster towards the ball than away from it (so faster to the right while the ball rests on it), and the
+    ball leaves by itself after about four seconds: both are the game's own code, the same in MAME 0.289.
+  - Limits: a snapshot is a game already loaded, so a game that loads its next level from tape stops there; a few frames show a
+    one-line tear where a game redraws under the beam; its paths are not shared between players.
 - **SG-1000**, supported ([SG1000.md](SG1000.md)): SG-1000 and SG-1000 II cartridges, 2 to 48 KiB, no firmware needed; Pause is a
   key and a pad button, its ports and Pause equal to MAME 0.289's. Not converted: the SC-3000's keyboard, BASIC and cassette,
   cartridges with their own RAM.
@@ -37,10 +41,15 @@
   System Card 3.0 (checked by its hash, never shipped; measured with the Japanese card only). Not converted: the Arcade Card,
   SuperGrafx, multi-disc games.
   - Discs from a CHD (version 4 or 5, read by our own provider on libchdr), a CUE sheet with its BIN files (packed into the game) or
-    an ISO; one executable holds the disc and the card; backup memory in `datas/saves`.
+    an ISO; one executable holds the disc and the card. A disc without a save starts with a formatted backup memory, in
+    `datas/saves` (without it Dungeon Explorer II refused to save).
   - The multitap per disc, from a reviewed table: Dungeon Explorer II plays at three and four.
-  - The long route is built segment by segment: Dracula X types a name on its file screen, starts and passes its opening scenes.
+  - Every disc of the panel of nine has a route that reaches play; the long route is built segment by segment: Dracula X types a
+    name on its file screen, starts and reaches its first fight.
   - The HuC6280 vectors run again on this machine: the translated code differs from the interpreter in none of 56,767 cases.
+  - Its drive, CD audio, ADPCM and backup memory were compared with MAME 0.289 on three discs.
+  - Limits: no real CUE or ISO converted yet (only authored discs), the USA System Card not tried; a disc game records no player's
+    record (F12 has no effect) and shares no paths.
 - **Native code and checks, on their panels**: every panel game reports 0 interpreted instructions on its conversion routes,
   and the native run equals the reference interpreter frame by frame there; code no route reached runs on the counted
   interpreter. Windows and Debian 13 (in WSL) gave the same results on the games compared, the SG-1000 and ColecoVision ones taken
@@ -49,9 +58,9 @@
   and its report says so.
 - **Multiplayer**: two players with rollback on the six, four on Dungeon Explorer II; the Game Boy Color's link cable; the host
   types on the CPC's keyboard; the SG-1000's Pause and the ColecoVision's keypad per player. Proven by the automatic runs on two
-  PCs (11 matches of 11: every state digest equal, save, load and restart on the same frames), not by the owner's own play on two
-  PCs.
-- **The owner's play test**: on 27 November 2026 he played the games delivered for him (three a machine, six on the Spectrum)
+  PCs (12 matches of 12, then 11 of 11: every state digest equal, save, load and restart on the same frames), not by the owner's
+  own play on two PCs.
+- **The owner's play test**: on 27 November 2026 he tried the games delivered for him (three a machine, six on the Spectrum)
   and accepted each machine. A play impression, not a measure.
 
 ### The shared Z80 chain (Master System, Game Gear, MSX family and the four new Z80 machines)
@@ -75,14 +84,17 @@
   Boy Advance and Game Gear; on the 3D machines they are values of the graphics page's Filter row.
 - Stage 1, on every graphics driver: beams, a phosphor mask, glow and a vignette drawn with SDL alone (about 4 KB per packed game).
 - Stage 2, with a graphics card: the CRT looks drawn by CRTS (Timothy Lottes' crt-lottes-fast, public domain) on Direct3D 11 on
-  Windows and OpenGL on Linux; stage 1 when there is no card, under Variable refresh, or if the driver refuses the shader.
+  Windows and OpenGL elsewhere (OpenGL proven on a Windows driver; a Linux graphics card is not measured yet); stage 1 when there is
+  no card, under Variable refresh, or if the driver refuses the shader. About 6 KB more per packed game; all the looks together
+  about 13 KB.
 - A style per look, kept per console on the options page (about 3 KB more per packed game): **CRT style** Soft, Sharp or Arcade
   (the arcade boards start in Arcade); **LCD style** Real screen (the handheld's own panel, with its short trail) or Grid.
 - Presentation only: nothing enters the game, its states or the multiplayer digest, and each player of a match keeps their own
   look. F3's notice names every filter in the five game languages.
-- Cost, a light measure on a busy PC (not a quiet one): the CRT pass 0.13 to 0.46 ms of graphics-card time a frame from 1080p
-  to 4K, under 0.65 ms of CPU; no queued frame added. On Direct3D 11 the pass is compiled once a run, 0.1 to 0.2 s, before the
-  first frame when the game opens on a CRT look.
+- Cost, a light measure on a busy PC (medians): the CRT pass takes 0.13 to 0.46 ms of graphics-card time a frame from 1080p to
+  4K, under 0.65 ms of CPU, with no queued frame added. Frame cost only; physical latency is not measured. On Direct3D 11 the pass
+  is compiled once a run, 0.1 to 0.2 s: before the first frame when the game opens on a CRT look, otherwise at the first switch to
+  one. Stage 1's first CRT frame takes 20 to 70 ms up to 1440p and up to 0.2 s at 4K (the mask built once).
 
 ### In the game
 
@@ -95,9 +107,10 @@
 
 - The delay is measured again once a guest's game has booted, so a slow start no longer inflates it (Bomb Jack on the CPC: 10
   frames before, 2 after, on two PCs).
-- A guest that finds the games out of step tells the host before it leaves: the match ends as « desync », not as a departure.
-- A room whose port is in a block Windows reserves (Hyper-V, WSL, Docker) tries random ports in the dynamic range instead of
-  failing to open.
+- A guest that finds the games out of step tells the host before it leaves: the match ends as « desync », not as a departure
+  (tested with both arrival orders).
+- A room whose port, or the UDP twin of its port, falls in a block Windows reserves (Hyper-V or WSL, for example) tries the asked
+  port first, then random ports in the dynamic range, instead of failing to open.
 - The rooms accept the six new machines' games: each conversion carries the identity the room checks.
 
 ### The converter

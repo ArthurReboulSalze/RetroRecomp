@@ -285,7 +285,7 @@ The **ZX Spectrum** profile (`zxs`) is supported since 1.10.0, on the owner's de
 converts 16K, 48K and 128K snapshots (`.z80`, `.sna`, or a ZIP holding one) with the ULA's memory contention and the floating bus
 modelled from published timings. Tapes, the +2A, the +3 and disks are not converted. Panel of eight: seven reach play with no
 interpreted instruction on their routes; Elite's snapshot halts in its own decryption, in MAME 0.289 too, and its report says so.
-Hardware was compared with MAME 0.289 only, gameplay validation is the owner's play of six games, and physical latency is not measured.
+Hardware was compared with MAME 0.289 only, gameplay validation is the owner's play test of the games delivered for him, and physical latency is not measured.
 
 The **SG-1000** profile (`sg1000`) is supported since 1.10.0, on the owner's decision of 27 November 2026 ([status](SG1000.md)). It converts
 SG-1000 and SG-1000 II cartridges (a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as SG-1000 or keep in a folder named `sg1000`; 2 KiB to
