@@ -1639,6 +1639,21 @@ the cartridge sensors and the e-Reader are not converted, and the link cable pla
 |---|---|---|---|---|
 | 14 November 2026 | Game Boy Advance | Golden Sun, Mario Kart Super Circuit, The Minish Cap, Crazy Taxi: Catch a Ride, F-Zero: Maximum Velocity, Pokémon Emerald | « Moi, je viens de tester les jeux Game Boy Advance. Donc ça marche parfaitement. Ils se comportent de manière parfaite. »; asked whether to take the Game Boy Advance out of the experimental status: « Oui, sors-la » | the exit from the experimental status (the owner-acceptance table) |
 
+### Checklist for Arthur: PC Engine CD play test (G14)
+
+G14 is already `Y` (the owner-acceptance table). This list is for the same three games **delivered again** on 27 November 2026 into `Export/Games/PC Engine CD` from the final tree of `spec/pcecd-g11`, if you want to look at what
+changed since the copies you played: a pad plugged in during play reaches the game, a game without a save starts with a formatted backup memory, and a disc game keeps no player's record (F12 does nothing). About three minutes
+each; the System Card shows « PUSH RUN BUTTON » first (Enter or the pad's Start). Nothing here says exact hardware, complete gameplay or latency.
+
+| Game | What to do | What should happen |
+|---|---|---|
+| Akumajou Dracula X - Chi no Rondo | title, your file screen, the first stage; I attacks, II jumps; F8, play on, F9 | the name saved before is listed; intro voices and stage music play; F9 returns to the saved moment |
+| Lords of Thunder | START, pick an armour, the first stage | CD music through the stage, the ship flies and shoots |
+| Ys Book I & II | Ys title, « Start game story », walk in the town | your File Cabinet is found (no new question if you had a save) |
+| Any of them | unplug the pad and plug it back (or into another port) during play | the game answers it again |
+
+Known limits: routes saw the first minutes, not a level won; the drive was compared with MAME on three discs, not with a console; the two-PC match is not proved.
+
 
 ## Commodore Amiga 1200: evidence behind its column (15 November 2026)
 
