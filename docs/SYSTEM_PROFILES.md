@@ -85,6 +85,16 @@ ColecoVision or that sits in a folder named `colecovision` (`coleco`, `coleco vi
 its conversion translates the cartridge with the BIOS, checks it against the reference interpreter and delivers a game executable (no player is offered it yet), and it exports to `Games/ColecoVision`. Its path section is `z80/coleco` (sources `rom` and `bios`), path order 24; it uses the shared banked Z80 chain with its own machine
 description (`COLECO_MACHINE`, with the VDP's interrupt on /NMI) and its gameplay feedback kind is 30 (reserved; nothing is recorded under it yet). See [ColecoVision](COLECOVISION.md).
 
+The **Amstrad CPC** profile (`cpc`, experimental and developer-only from 21 November 2026, supported from 27 November 2026) identifies CPC
+6128 disk images (`.dsk`, standard or EXTENDED, by their CPCEMU signature, or a ZIP holding one; asked before the MSX2+, which takes every
+other `.dsk`), reads the disk's AMSDOS catalogue for the command that starts the game from BASIC, and exports to `Games/Amstrad CPC`. Its
+firmware options are `cpc_system` (your own 32 KiB system ROM, or its 16 KiB OS and BASIC halves) and `cpc_amsdos` (your own AMSDOS ROM);
+without them the converter fetches the 6128's two ROMs once from a pinned source, checked by their digests. Its path section is `z80/cpc`
+(sources `disk`, `system` and `amsdos`), path order 25; it uses the shared banked Z80 chain with its own machine description
+(`CPC_MACHINE`: the Gate Array's microsecond costs and 16-bit ports), and its gameplay feedback kind is 31, reserved: the chain records
+nothing from play (the F12 row stays OFF), and what a conversion learns comes from its own routes, as on the MSX. Its paths are not shared. See
+[Amstrad CPC](AMSTRAD_CPC.md).
+
 The batch queue scans mixed folders recursively and routes recognized games to
 the correct console folder below `Games`, even when a custom output root is
 chosen. Foreign ROM extensions appear as **Unknown console** and are skipped,

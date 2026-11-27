@@ -75,7 +75,7 @@ class ConversionRefusalTests(unittest.TestCase):
         convert.assert_called_once_with(Path('x.dsk'), frames=900)
         self.assertTrue(AMSTRAD_CPC.available())                     # a development tree
         with mock.patch.object(sys, 'frozen', True, create=True):
-            self.assertFalse(AMSTRAD_CPC.available())                # the packaged converter
+            self.assertTrue(AMSTRAD_CPC.available())                 # and the packaged converter (supported)
 
     def test_the_firmware_record_is_one_the_lobby_compares(self):
         from retrorecomp.netplay import lobby_check

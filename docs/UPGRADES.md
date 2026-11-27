@@ -577,6 +577,21 @@ runs 19 % fewer instructions in its 2,100 frames, Head over Heels' 8 %.
 
 **Stamps**: the ZX Spectrum's game stamp (its machine, glue, reference runner, builder, profile and conversion); nothing else.
 
+## Amstrad CPC: supported, in every installation (next release)
+
+The owner played the three delivered CPC games and gave G14 (27 November 2026), so the CPC leaves the experimental status
+(`docs/AMSTRAD_CPC.md`): `AmstradCpcProfile` is `supported`, its Linux conversion witnessed (five panel games converted in WSL
+from the same commit as on Windows, equal final checks and multiplayer digests), and no longer `developer_only`: the packaged
+converter lists it, identifies its disks and converts them (`available()` is the default; `cpc_conversion.developer_available`
+is gone). The Options note says what it converts in the eight languages; the report's `delivery_note` no longer says « developer
+only, experimental »; five risk cases join `tools/campaign-risk-cases.json`; paths are not shared (`DECLINED['path_sharing']`,
+G16 `-`: received paths add no native instruction and save one learning pass). The optimisations on the maintainer's list (no
+picture on a silent rollback frame, the board caught up only at its events) stay out.
+
+**Stamps** (`compilation_inputs.role_stamps`, 27 profiles, before and after): the CPC's game stamp only
+(`systems/amstrad_cpc.py`, `cpc_conversion.py`); no host or build stamp, no other machine. Exports made by a development tree
+before this change convert again under the new game stamp; no released export exists.
+
 ## ZX Spectrum, SG-1000, ColecoVision, MSX, MSX2, MSX2+, Amstrad CPC: the build tracks what a game's resources embed (next release)
 
 The resource compiler (llvm-rc) reads the files content.rc names (the ROM, the machine image, the notices, the icon through the
