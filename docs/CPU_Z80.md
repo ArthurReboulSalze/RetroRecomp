@@ -189,6 +189,18 @@ and escape, the Neo Geo word-read order) are described in the deep dives; their 
 - Cycle counts are nominal per instruction. No electrical bus pin is modelled (Mega Drive), and the single-instruction
   vectors do not compare bus signals at each T-state.
 - The vectors come from software emulators, not from a recording of a console.
+- **The order of the two bytes of a push** (the banked chain: Master System, Game Gear, MSX family, SG-1000, ColecoVision, ZX
+  Spectrum, Amstrad CPC; the "functions" engine of the Master System and Game Gear too). A real Z80 writes the high byte first (SP-1)
+  then the low byte (SP-2) for `PUSH`, `CALL`, `RST` and the interrupt acceptances, and writes SP+1 before SP for `EX (SP),HL`. Our
+  bodies (`sms_write16`) and the reference interpreter (`pushw`, `ww`) write the low byte first. Both agree, so the native-against-reference
+  comparisons cannot see it, and the vectors compare the final memory, which is the same. It could show only if the stack stood on addresses
+  where a write acts at once on the other byte: on the MSX, a push with SP at 0000h or 0001h, which writes FFFFh, the secondary slot register
+  (it changes where the byte at FFFEh goes), or a stack inside a cartridge's register window where both bytes land in the same bank register
+  (the last write wins). On the Master System and the Game Gear the registers at FFFCh-FFFFh are separate latches and the RAM below them
+  keeps both bytes, so the result is the same; the SG-1000, the ColecoVision, the ZX Spectrum and the CPC have no memory-mapped register
+  a stack could reach this way. No known program does it. Not corrected: it would change the generated code of every game for no visible
+  difference (found by the CPC specialist against MAME, 27 November 2026). The ZX Spectrum's contention times a push in the real order
+  (`z80_timing`: SP-1 first). The Neo Geo and CPS-1 sound Z80 are other cores, not examined here.
 - On the Mega Drive, the bus handoff is not a complete local-bus model: no BR/BG/BGACK synchroniser, turnaround or
   subcycle data-latch timing, and guard revalidation of code modified during a suspended fetch stays open
   ([MEGADRIVE_Z80_TIMING.md](MEGADRIVE_Z80_TIMING.md)). The 68000-side interrupt checks are on
