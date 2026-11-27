@@ -7,7 +7,7 @@ rebuilt from the paths already learned, without replaying the exploration
 routes. Anything that can change which code a game runs, how it is translated
 or how it is validated still triggers a full conversion.
 
-This page keeps the rules, the current release and the one before it, and still the sections of 1.7.0 and 1.6.8. The detail of releases 1.6.9, 1.6.7 and 1.6.6 is in
+This page keeps the rules, the current release and the one before it, and still the sections of 1.7.x and 1.6.8. The detail of releases 1.8.0, 1.6.9, 1.6.7 and 1.6.6 is in
 [UPGRADES_HISTORY.md](UPGRADES_HISTORY.md), and that of 1.6.5 and before in [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md) (the same text,
 the same anchors).
 
@@ -92,6 +92,65 @@ inherited discovery met it.
 An upgrade does not claim more than it checked. It does not replay long or
 pseudo-random routes, and it is not a fidelity or latency measurement.
 
+## Exports of 1.9.1 in 1.10.0
+
+1.10.0 is the release of the six new machines (ZX Spectrum, SG-1000, ColecoVision, Amstrad CPC, Game Boy Color, PC Engine CD)
+and of the CRT and LCD looks. Measured between the `v1.9.1` tag and rc-1100 `a31ff377` with `compilation_inputs.role_stamps`
+(Python 3.14, and 3.13.5 for the Linux converter): **the game, host and build stamps of all 21 profiles of 1.9.1 move**, so no export
+of 1.9.1 is current; six profiles are new and have no export of 1.9.1.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| Feedback kinds 28 to 31 reserved (`native/runtime_feedback.h`) | **all 21**: the header is a game input of every console | none | the Mega Drive and Super Nintendo keys move (they hash the header) |
+| The storage check expects player 1's S key (`native/lazy_data_checks.c`, a self-test source) | all 21 (the check is in the `ALL` group; no game compiles it) | none | the Mega Drive and Super Nintendo keys move |
+| The Z80 chain has no learn bound (`native/banked_emitter.inc`, `native/z80_learned_set.h`, `z80_chain_build`) | all 21 (the emitter is in the `ALL` group; only the Z80 chain machines read it); the generated files are equal for any game under the old 4,096-window bound | none | the Mega Drive and Super Nintendo keys move (`banked_emitter.inc`) |
+| The Z80 chain: bus cycles, contention, NMI, costs, 16-bit ports; the TMS9918A and the AY-3-8910 as modules; shared glue and build helpers | sms, gg (`z80_chain`, `cpu`, `z80_timed`, `z80_timing`; the same rendered text), msx, msx2, msx2plus (also the modules and the glue) | none | MSX keys unchanged (`msx-state-6`) |
+| Firmware and other machines' files refused, the MSX1 sniff (`cartridge16`, `msx_rom`, `systems/*`, `x68000_media`, `amiga`) | all 21 (`cartridge16`); the MSX family, x68, amiga, a1200, pce and gb for their own file | none | unchanged |
+| The test-run data guard (`paths.py`, `toolchain.py`) | all 21 (`paths`) | the build stamp of all 21 (`toolchain`) | the Amiga, Atari ST and Nintendo 64 keys move (they hash the engine stamp, all roles), and the X68000's in a packaged converter |
+| Game Boy: the variant of the engine for the Color (`gameboy*`, `systems/game_boy`) | gb | none | unchanged |
+| PC Engine: the disc machine and its snapshot, compiled out of a HuCard (`pce_*`, `pce_build`, `pce_conversion`) | pce | none | **the PC Engine key moves** (it hashes `pce_machine.cpp`, `pce_main.c`); refused cleanly |
+| PlayStation: CHD discs (`cd_chd`, `chd_native`, `psx_disc`, `psx_pack`) | psx | none | unchanged |
+| Amiga: the detection chooses the install's slave (`amiga`, `amiga_whdload`) | amiga, a1200 | none | **the Amiga key moves** (it hashes the engine stamp) |
+| Quick states: no compatibility key for any release (`console16_state`) | cps1, cps2, md, ng, pce, psx, snes | none | Mega Drive and Super Nintendo: the 1.7.4 key is gone |
+| CRT and LCD looks, pad hot-plug, the sprite option's row | none | **the host stamp of all 21** (the shell, `scanlines.h`, `scanline_sdl.h`, `display_settings.h`, `game_options.h`, `retro_menu.h`, `runtime_catalog.inc`, the adapters, `licenses/crt-lottes.md`) | unchanged |
+
+**Game stamps: the class of each console's change.**
+- *Cannot change a generated game* ((a): a comment, a self-test, a refusal): feedback (comment), paths, lazy_data_checks, cartridge16, the
+  Game Boy and Amiga detection, `systems/*`, `x68000_media`, `gbc_hardware_checks`, `neogeo_controls_checks`.
+- *Changes how the game is built, not what it does* ((b)): `runtime_feedback.h` (two immediates of one range check), the Game Boy variant,
+  the PC Engine disc path (compiled out of a HuCard), the PlayStation CHD reader, the Z80 chain refactor for sms and gg.
+- *Changes what a game does or learns* ((c)): the Z80 chain learn bound for the MSX family (and the chain machines), the removal of the
+  compatibility key (quick-state acceptance).
+
+**Evidence:** `native/runtime_feedback.h`: the same game converted before and after, same folder path: sms, gb, pce and msx differ in the
+two bytes of the guard, nes is identical, md differs in the guard and the key, snes is not reproducible run to run (its sources are equal).
+Game Boy: Tetris and Super Mario Land identical, 133 and 136 files. PlayStation: Soul Blade, WipEout 2097 and Destruction Derby 2 give a
+byte-identical game from their CHD and from their CUE/BIN set. Amiga: Lotus 2 replays seven traces byte for byte. Z80 chain: the emitter,
+the step loop and the reference copy rendered for sms and gg have equal SHA-256 in both trees; Flicky and Actman generate equal files below
+the old bound. This evidence was taken on earlier mains of the cycle, each for its own change; the head added tests, documents,
+`console16_state`, the CHD files and the PlayStation merge since.
+
+**What a 1.9.1 export becomes.**
+- **Upgraded, not rediscovered** (the previous game stamp is listed in `LEGACY_GAME_STAMPS`): Master System, Game Gear, Game Boy, NES,
+  Mega Drive, Super Nintendo, Neo Geo, CPS-1, CPS-2, PC Engine, Game Boy Advance, Nintendo 64, PlayStation, Atari ST, Amiga 500, Amiga
+  1200, Adventure (ScummVM). Rebuilt at the quick level from the paths already learned; the generated code is the same; the host part is
+  the new one (the CRT and LCD looks, a pad plugged in during play).
+- **[PLACEHOLDER: the MSX A/B of v1.9.1 against the head (Nemesis, Aleste, Family Stadium) decides; keep one of the two lines]**
+  - *If identical:* **Upgraded, not rediscovered:** MSX, MSX2 and MSX2+ too (their 1.9.1 game stamps listed in `LEGACY_GAME_STAMPS`):
+    the A/B of v1.9.1 against the head gives the same game on Nemesis (MSX), Aleste (MSX2) and Family Stadium (MSX2+).
+  - *If not:* **Converted again once:** MSX, MSX2 and MSX2+: the chain is shared with five new machines, and a game that learned more
+    than 4,096 windows now translates them.
+- **Converted again once:** the Sharp X68000 (its request carries an SDK stamp derived from the game stamp; the game's code does not
+  change).
+- **Quick states:** the Mega Drive, Super Nintendo, PC Engine, Amiga 500 and 1200, Atari ST, Nintendo 64 and X68000 states of 1.9.1 are
+  refused cleanly (the X68000's in a packaged converter, whose key carries the engine stamp). A Game Boy state of 1.9.1 loads (checked on
+  one game); the other consoles' keys do not move, so their states should load (not exercised on a real export). Cartridge saves, memory
+  cards, backup memory and the copies of written disks are files beside the game and are kept.
+- **No export of 1.9.1 stays « compatible »:** every profile of 1.9.1 moves all three role stamps, so `assets/release-stamps.json` shows no
+  1.9.1 export as compatible with 1.10.0.
+
+New in 1.10.0, no export of 1.9.1 to carry over: ZX Spectrum, SG-1000, ColecoVision, Amstrad CPC, Game Boy Color, PC Engine CD.
+
 ## Exports of 1.8.0 in 1.9.0
 
 1.9.0 is the multiplayer release (in preparation). One line per change, with the stamps that change's section says it moves,
@@ -166,10 +225,10 @@ state-layout keys move too, with the other keys the rows name.
 | [Capcom CPS-1, CPS-1.5 and CPS-2: two small changes to the frame cost, and the checks that go with them](#capcom-cps-1-cps-15-and-cps-2-two-small-changes-to-the-frame-cost-and-the-checks-that-go-with-them-190) | **the CPS-1 and CPS-2 game stamps** (`cps1_machine.c`, `cps1_native.c`; the CPS-1 generator revision 15) | none | unchanged |
 | [PC Engine / TurboGrafx-16: rollback and the host's F8 / F9 for everyone](#pc-engine--turbografx-16-rollback-and-the-hosts-f8--f9-for-everyone-190) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, the new snapshot files, `pce_main.c`, `pce_build.py`, the profile) | the PC Engine host stamp (`rrhk_pce.c`) | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c` |
 | [PC Engine / TurboGrafx-16: a cheaper frame](#pc-engine--turbografx-16-a-cheaper-frame-190) | **the PC Engine game stamp** (`pce_machine.cpp`, `pce_machine_internal.hpp`, `pce_snapshot.cpp`, the new `native/pce_engine/` files, `pce_build.py`) | none | refused cleanly (the PC Engine key hashes the patched file) |
-| [PC Engine CD: the PC Engine's bridge learns a disc](#pc-engine-cd-the-pc-engines-bridge-learns-a-disc) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, `pce_main.c`, `pce_build.py`, `pce_conversion.py`) | none | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c`, so quick states of existing exports are refused cleanly |
-| [PC Engine CD: multiplayer on a disc](#pc-engine-cd-multiplayer-on-a-disc-step-3-22-november-2026) | **the PC Engine game stamp** and **the PC Engine CD game stamp** (`pce_snapshot.cpp`, `pce_machine_internal.hpp`, `pce_engine/pcm.cpp`: the same group as the disc path above, one release) | none | the snapshot of a HuCard machine is unchanged (A/B and self-test); a disc machine's snapshot is new |
-| [PC Engine CD: deeper routes, CUE sheets, notices](#pc-engine-cd-deeper-routes-cue-sheets-notices-27-november-2026) | **the PC Engine host stamp** (the notice page); **the PC Engine CD game and host stamps** | none | PC Engine exports rebuilt once, same machine code; PC Engine CD quick states refused cleanly, backup memory kept |
-| [PC Engine CD: the multitap discs](#pc-engine-cd-the-multitap-discs-22-november-2026) | **the PC Engine CD game stamp** (`pcecd.py`, `pcecd_conversion.py`) | none | a disc not listed converts as before; Dungeon Explorer II is rebuilt with four players |
+| [PC Engine CD: the PC Engine's bridge learns a disc](#pc-engine-cd-the-pc-engines-bridge-learns-a-disc-1100) | **the PC Engine game stamp** (`pce_machine.cpp` and `.h`, `pce_main.c`, `pce_build.py`, `pce_conversion.py`) | none | the format is unchanged; the PC Engine key hashes `pce_machine.cpp` and `pce_main.c`, so quick states of existing exports are refused cleanly |
+| [PC Engine CD: multiplayer on a disc](#pc-engine-cd-multiplayer-on-a-disc-1100) | **the PC Engine game stamp** and **the PC Engine CD game stamp** (`pce_snapshot.cpp`, `pce_machine_internal.hpp`, `pce_engine/pcm.cpp`: the same group as the disc path above, one release) | none | the snapshot of a HuCard machine is unchanged (A/B and self-test); a disc machine's snapshot is new |
+| [PC Engine CD: deeper routes, CUE sheets, notices](#pc-engine-cd-deeper-routes-cue-sheets-notices-1100) | **the PC Engine host stamp** (the notice page); **the PC Engine CD game and host stamps** | none | PC Engine exports rebuilt once, same machine code; PC Engine CD quick states refused cleanly, backup memory kept |
+| [PC Engine CD: the multitap discs](#pc-engine-cd-the-multitap-discs-1100) | **the PC Engine CD game stamp** (`pcecd.py`, `pcecd_conversion.py`) | none | a disc not listed converts as before; Dungeon Explorer II is rebuilt with four players |
 | [Super Nintendo, Mega Drive, PC Engine: the host's save written back at the end of a match](#super-nintendo-mega-drive-pc-engine-the-hosts-save-written-back-at-the-end-of-a-match-190) | **the Super Nintendo, Mega Drive and PC Engine game stamps** (`native/cart_save.c` and `.h`) | their host stamps (`rrhk_snes.c`, `snes_backend.c`, `snes_battery.c` and the others the section names) | a key that hashes those files moves |
 | [Every machine: the cover search finds the right edition, more No-Intro boxes, and no ArcadeItalia placeholder](#every-machine-the-cover-search-finds-the-right-edition-more-no-intro-boxes-and-no-arcadeitalia-placeholder-190) | **the CPS-1, CPS-2, Neo Geo, Amiga 500 and Amiga 1200 game stamps** (the profiles' `cover_sets` and `cover_fallback_titles`, `capcom_sets.py`, `cps1.py`, `cps2.py`; `retrorecomp/amiga.py`'s archive names; their games do not change) | **the host stamp of all 21 profiles** (`artwork.py`, `cover_sources.py`, `cover_titles.py`); build unchanged | unchanged (no native file) |
 | [Game Boy: a line with sprites is drawn in runs, and the adapter's sound is a ring](#game-boy-a-line-with-sprites-is-drawn-in-runs-and-the-adapters-sound-is-a-ring-190) | **the Game Boy game stamp** (`native/gb_ppu_object_span.h`, `gameboy_hardware.py`, `gameboy_runtime.py`) | **the Game Boy host stamp** (`rrhk_gb.inc`); build unchanged | unchanged (the bytes of a state are the same) |
@@ -350,7 +409,7 @@ passed. The kept files of each build are equal, but `runtime_feedback.h` itself 
 (`console16_state.state_layout_files`), this header included, so it moves. It had already moved this release
 (`native/banked_emitter.inc` changed since v1.9.1), so this change refuses no further state. The other machines' keys do not hash
 this header. **Hot path:** unchanged (no new call).
-## Sony PlayStation: CHD discs are read (next release)
+## Sony PlayStation: CHD discs are read (1.10.0)
 
 A player's question on Discord (« Is it possible to support the CHD format in the future? »), Arthur's go of 27 November 2026 for
 this release. A PlayStation disc in a CHD image (MAME's compressed CD format, versions 4 and 5, any of its codecs: LZMA, Deflate,
@@ -383,8 +442,10 @@ library: Soul Blade, WipEout 2097, also with `-c cdzs`, Destruction Derby 2, Tom
 Engine CD game stamp (`psx_disc.py` and `cd_chd.py`, shared). The helper's source (`native/chd_sectors/chd_sectors.c`) is declared
 out of the stamps: it runs in the converter only, and what it gives a game is in the game key and the packed bytes; so the
 simulation identity of both machines (the multiplayer check) does not move. No game file changes: a
-game converted before and after this change is the same file ({LEGACY_LINE}), so the previous game stamps of both machines can be
-listed as upgradable (`LEGACY_GAME_STAMPS`, at the release). No host or build stamp, no quick-state key moves.
+CUE/BIN, ISO or PBP disc is packed and keyed as before, and Soul Blade, WipEout 2097 and Destruction Derby 2 give the same
+exported game from their CHD as from their CUE/BIN set. The PlayStation's 1.9.1 game stamp is listed in `LEGACY_GAME_STAMPS`, so
+its exports of 1.9.1 are upgraded, not rediscovered. The PC Engine CD is new in 1.10.0 and has no earlier stamp. No host or build
+stamp, no quick-state key moves.
 
 ## Every machine: the storage check expects player 1's S key (1.10.0)
 
@@ -406,7 +467,7 @@ now only in a monochrome Game Boy game (`native/hostkit/adapters/rrhk_gb.inc`, `
 game and build stamps and every other machine unchanged). The Game Boy's stamps already move this release, so no export is converted once more for it. Quick states unchanged. The
 link-cable notes of the converter (the multiplayer note and the credits, eight languages) now name the Game Boy Color too; no stamp moves for them.
 
-## PC Engine CD: the PC Engine's bridge learns a disc
+## PC Engine CD: the PC Engine's bridge learns a disc (1.10.0)
 
 The PC Engine CD ([PC_ENGINE_CD.md](PC_ENGINE_CD.md)) is the PC Engine's machine with a disc and the player's System Card: it shares the bridge to the pinned engine, the
 snapshot, the host-kit adapter and the build module, so that no second copy exists. The shared files gain a disc path that a HuCard game never compiles
@@ -416,7 +477,7 @@ without a save). Nothing a HuCard game computes changes: **only the PC Engine ga
 reconversion; the host stamp (the adapter `rrhk_pce.c` is untouched: the CD machine's adapter includes it) and the build stamp do not move, and **no other machine's stamp moves** (measured
 against the base commit, every machine). Quick states of an existing PC Engine export are refused cleanly after the rebuild, as at each change of the bridge.
 
-## PC Engine CD: multiplayer on a disc (step 3, 22 November 2026)
+## PC Engine CD: multiplayer on a disc (1.10.0)
 
 The PC Engine CD joins the multiplayer sessions on the rollback tier ([PC_ENGINE_CD.md](PC_ENGINE_CD.md), "Multiplayer"). Files that a HuCard game also compiles change: `native/pce_snapshot.cpp` (a disc machine is a machine
 the snapshot describes: the System Card's RAM and the drive's are RAM banks like the work RAM, the backup memory is bank $F7, the drive, the ADPCM unit and the CD audio are the engine's audio side, and the digest
@@ -425,11 +486,11 @@ declared in [UPSTREAMS.md](UPSTREAMS.md); no instruction path changes). **Only t
 an existing PC Engine export is rebuilt once. The HuCard output is unchanged, proved by an A/B of two games (Alien Crush, Air Zonk: the picture, sound, CPU and RAM hashes of every route equal, the engine file's hash in the
 simulation identity and the packed size being the only differences) and by the snapshot self-test on both boards (`tools/pce_snapshot_selftest.py`: 150 save points and 3,300 replayed frames each). The digest of a HuCard machine is the bytes it was.
 
-## PC Engine CD: deeper routes, CUE sheets, notices (27 November 2026)
+## PC Engine CD: deeper routes, CUE sheets, notices (1.10.0)
 
 The long route of an extended conversion is built segment by segment from the state reached so far ([PC_ENGINE_CD.md](PC_ENGINE_CD.md), section 5), a CUE sheet is packed with the engine's sector numbering and held by the game (`native/pcecd_disc.cpp` reads the pack), and the engine notice page names the pinned revision. Measured against `dce6c18d` (`compilation_inputs.role_stamps`, all 27 machines): **the PC Engine host stamp** (the notice page `licenses/pcenginerecomp.md` embedded in games) and **the PC Engine CD game and host stamps** move; no build stamp and no other machine's stamp. A PC Engine export is rebuilt once (its machine code unchanged); PC Engine CD exports (not yet released) are converted again, their quick states refused cleanly (the disc provider is part of their key), their backup memory kept.
 
-## PC Engine CD: the multitap discs (22 November 2026)
+## PC Engine CD: the multitap discs (1.10.0)
 
 A reviewed table keyed by the disc's digest (`pcecd.MULTITAP_PLAYERS`, the rule of the HuCards') names the discs built for more than two players; the conversion passes the count to `prepare_game`. Dungeon Explorer II (USA) is listed (four players:
 its pads 2, 3 and 4 change the game on its long route, `tools/pcecd_multitap_probe.py`); every other disc stays at two. **Only the PC Engine CD game stamp moves** (`pcecd.py` and `pcecd_conversion.py` are the machine's own converter modules, `stamp_inputs.py`): no host stamp and no other machine's moves. A disc that is not
@@ -528,7 +589,7 @@ upgraded, never rediscovered. The previous release ignores the two new keys.
 
 ## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (1.10.0)
 
-## Mega Drive and Super Nintendo: no compatibility key for quick states (next release)
+## Mega Drive and Super Nintendo: no compatibility key for quick states (1.10.0)
 
 Builds of 1.7.6 to 1.9.1 still accepted a quick state of 1.7.4 (the key listed once for 1.7.5 stayed in the table), while
 refusing a 1.9.1 one, although the state layout had changed since 1.7.4. The table (`console16_state.STATE_ABI_174`), the line
@@ -548,7 +609,7 @@ PlayStation never listed a key in 1.10.0; the X68000 has its own state code and 
   moved since 1.9.1, so no further state of a release is refused). The Neo Geo, CPS-1 / CPS-2, PC Engine and PlayStation keys are
   unchanged. **Hot path:** none (the comparison is made when a state is loaded).
 
-## PC Engine CD: a new memory starts formatted, and a disc records nothing (next release)
+## PC Engine CD: a new memory starts formatted, and a disc records nothing (1.10.0)
 
 Two changes in files the HuCard games also compile (`native/pce_machine.cpp`, `native/pce_main.c`, `retrorecomp/pce_conversion.py`):
 - a disc game without a save file now finds a **formatted** backup memory (the file system header, nothing stored), as a HuCard game, Beetle and MAME do. A blank memory made Dungeon Explorer II refuse to
@@ -559,7 +620,7 @@ The PC Engine CD also becomes **supported** (its profile, [PC_ENGINE_CD.md](PC_E
 **the PC Engine CD game stamp** move; no host or build stamp and no other machine's stamp. A PC Engine export is converted again once with the same result (the HuCard's memory and record are unchanged). PC Engine CD
 exports (none released) are converted again; their save files are read as before.
 
-## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (next release)
+## Every machine: a pad plugged in during play reaches the game; a missing pinned pad no longer blocks its player (1.10.0)
 
 Owner's report of 27 November 2026 (Alex Kidd in Miracle World): with player 1 pinned to his first pad on F2's Gamepad
 row, another pad, or the same pad on another USB port, answered the menus but never the game. Player 1 waited for the
@@ -2774,37 +2835,6 @@ row; the graphics and options tiles before it), the players' self-test and the o
 the chat's and Restart's refused, the held buttons hidden). **Stamps:** no game stamp moves; the host stamp of the 21
 profiles moves (compared with `main` 36abf44b): every export is upgraded once (rebuilt), none converted again. **Existing
 exports:** unchanged until that upgrade; an older preferences file keeps every binding and gets Guide for Options.
-
-## Exports of 1.7.9 in 1.8.0
-
-1.8.0 is the release after 1.7.9. One line per change, with the stamps it moves.
-
-| Change | Game stamps that move | Host and build stamps | Quick states |
-| --- | --- | --- | --- |
-| [A build folder from another source directory is discarded](#a-build-folder-from-another-source-directory-is-discarded) | none | **the build stamp of every profile** (`retrorecomp/toolchain.py`) | unchanged |
-| [The converter: a Front-end mode](#the-converter-a-front-end-mode) | none | **the host stamp of every profile** (`native/player_gamepad.c`) | unchanged |
-
-## A build folder from another source directory is discarded
-
-`toolchain.reset_incompatible_cache` (run before every CMake configure) also deletes a build folder whose `CMakeCache.txt` names another
-source directory than the `-S` it is given. A packaged converter's sources live in a temporary folder that changes at each launch, so a
-machine build left unfinished by a closed window was refused by CMake at every later launch (16 November 2026, Arthur's 1869 on the
-Amiga 1200). **Stamps:** the build stamp of every profile (`toolchain.py` is the build input): every export is upgraded once (recompiled
-and checked on its quick routes), none converted again.
-
-## The converter: a Front-end mode
-
-`retrorecomp/gui_front_end.py`, `front_end.py` and `front_end_view.py` (new interface modules): a wall of box art over the Compiled
-Games inventory, with its own small file `datas/front-end.json` (schema 1: the console shown, the order, the covers per row of each
-console or of the favourites and the search, and when each game was last played, by console and ROM identity; never a path or a
-title). Two window preferences, `start_front_end` and `start_front_end_fullscreen` (`INTERFACE_PREFERENCES`). `game_details.Cards`
-gains `cached_cover` (only the saved cover: the front-end never reads an executable), and `Cards.cover` keeps the same result. The
-converter's controller bridge `native/player_gamepad.c` reports L2 and R2 as bits 29 and 30 of the button mask (the 12 values of a
-poll keep their layout, so Compiled Games' navigation reads them unchanged); its build (`tools/build_player_gamepad.py`,
-`tools/player_gamepad/CMakeLists.txt`) now links the games' llvm-mingw SDL2 on Windows. **Stamps:** no game stamp moves; the host
-stamp of every profile moves (`native/player_gamepad.c` is a host input of every profile, though no game links it), in the same release
-whose build stamp already moves for every profile: every export is upgraded once, none converted again (game, host and build stamps
-of the 21 profiles compared with `main` d87cd720). **Existing exports:** unchanged until that upgrade.
 
 ## Exports of 1.7.8 in 1.7.9
 

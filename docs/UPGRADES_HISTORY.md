@@ -1,8 +1,39 @@
-# Upgrading exports: history of releases 1.6.9, 1.6.7 and 1.6.6
+# Upgrading exports: history of releases 1.8.0, 1.6.9, 1.6.7 and 1.6.6
 
-The per-release detail of releases 1.6.9, 1.6.7 and 1.6.6, moved from [UPGRADES.md](UPGRADES.md) so that each page stays readable (the text and the
-anchors of every section are unchanged). The current release, the one before it, the sections of 1.7.0 and 1.6.8, the rules and the classification of host and
+The per-release detail of releases 1.8.0, 1.6.9, 1.6.7 and 1.6.6, moved from [UPGRADES.md](UPGRADES.md) so that each page stays readable (the text and the
+anchors of every section are unchanged). The current release, the one before it, the sections of 1.7.x and 1.6.8, the rules and the classification of host and
 game inputs stay in [UPGRADES.md](UPGRADES.md); the sections of 1.6.5 and before are in [UPGRADES_HISTORY_OLDER.md](UPGRADES_HISTORY_OLDER.md).
+
+## Exports of 1.7.9 in 1.8.0
+
+1.8.0 is the release after 1.7.9. One line per change, with the stamps it moves.
+
+| Change | Game stamps that move | Host and build stamps | Quick states |
+| --- | --- | --- | --- |
+| [A build folder from another source directory is discarded](#a-build-folder-from-another-source-directory-is-discarded) | none | **the build stamp of every profile** (`retrorecomp/toolchain.py`) | unchanged |
+| [The converter: a Front-end mode](#the-converter-a-front-end-mode) | none | **the host stamp of every profile** (`native/player_gamepad.c`) | unchanged |
+
+## A build folder from another source directory is discarded
+
+`toolchain.reset_incompatible_cache` (run before every CMake configure) also deletes a build folder whose `CMakeCache.txt` names another
+source directory than the `-S` it is given. A packaged converter's sources live in a temporary folder that changes at each launch, so a
+machine build left unfinished by a closed window was refused by CMake at every later launch (16 November 2026, Arthur's 1869 on the
+Amiga 1200). **Stamps:** the build stamp of every profile (`toolchain.py` is the build input): every export is upgraded once (recompiled
+and checked on its quick routes), none converted again.
+
+## The converter: a Front-end mode
+
+`retrorecomp/gui_front_end.py`, `front_end.py` and `front_end_view.py` (new interface modules): a wall of box art over the Compiled
+Games inventory, with its own small file `datas/front-end.json` (schema 1: the console shown, the order, the covers per row of each
+console or of the favourites and the search, and when each game was last played, by console and ROM identity; never a path or a
+title). Two window preferences, `start_front_end` and `start_front_end_fullscreen` (`INTERFACE_PREFERENCES`). `game_details.Cards`
+gains `cached_cover` (only the saved cover: the front-end never reads an executable), and `Cards.cover` keeps the same result. The
+converter's controller bridge `native/player_gamepad.c` reports L2 and R2 as bits 29 and 30 of the button mask (the 12 values of a
+poll keep their layout, so Compiled Games' navigation reads them unchanged); its build (`tools/build_player_gamepad.py`,
+`tools/player_gamepad/CMakeLists.txt`) now links the games' llvm-mingw SDL2 on Windows. **Stamps:** no game stamp moves; the host
+stamp of every profile moves (`native/player_gamepad.c` is a host input of every profile, though no game links it), in the same release
+whose build stamp already moves for every profile: every export is upgraded once, none converted again (game, host and build stamps
+of the 21 profiles compared with `main` d87cd720). **Existing exports:** unchanged until that upgrade.
 
 ## Exports of 1.6.8 in 1.6.9
 
