@@ -50,8 +50,10 @@ class Selection:
 
 
 def tools_directory() -> Path:
-    from .paths import data_directory
-    return data_directory() / 'tools'
+    """The installed build tools. They are the converter's own equipment, not the player's data: a test run or a
+    scratch data folder (paths.data_directory) still builds with the tools installed beside the real one."""
+    from .paths import real_data_directory
+    return real_data_directory() / 'tools'
 
 
 def _pinned() -> dict[str, tuple[str, str]]:

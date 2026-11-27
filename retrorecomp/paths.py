@@ -62,6 +62,7 @@ def preferred_games_root(preferences: dict) -> tuple[Path, bool]:
 DATA_DIRECTORY_VARIABLE = 'RETRO_RECOMP_DATA_DIR'
 _TEST_FLAG = 'RETRO_RECOMP_TESTING'
 _TEST_SCRATCH: list[Path] = []
+_OWNER_DATAS = ROOT / 'Export' / 'datas'      # where this checkout's own data is, whatever a test patches later
 
 
 def real_data_directory() -> Path:
@@ -111,11 +112,16 @@ def data_directory(root: Path | None = None) -> Path:
     if root:
         return root / "datas"
     chosen = os.environ.get(DATA_DIRECTORY_VARIABLE)
-    if chosen:
+    # The scratch folder this very process made is exported for its children only: here the question is asked
+    # again each time, so a test that plays a packaged application (sys.frozen) still gets that application's folder.
+    if chosen and not (_TEST_SCRATCH and Path(chosen) == _TEST_SCRATCH[0]):
         return Path(chosen)
-    if running_tests():
+    real = real_data_directory()
+    # Only the owner's own folder needs the guard: a test that moved the application elsewhere (a patched ROOT, a
+    # played packaged application) reads and writes the folder it set up.
+    if real == _OWNER_DATAS and running_tests():
         return _test_scratch_directory()
-    return real_data_directory()
+    return real
 
 
 def selected_bios_path(value: str | Path | None) -> Path | None:
