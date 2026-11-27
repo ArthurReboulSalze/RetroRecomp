@@ -706,7 +706,7 @@ X68000 too, without asking again**.
     Windows backend). The CRT looks are drawn by a pass of our own inside SDL's renderer, with CRTS (Timothy Lottes'
     crt-lottes-fast, Unlicense) ported into one source for HLSL and GLSL (`native/hostkit/shell/rrhk_crts.inc`):
     * **Backends**: Direct3D 11 on Windows (`SDL_RenderGetD3D11Device`, HLSL compiled at first use by the system's
-      `d3dcompiler_47.dll`, feature level 10.0 or more) and OpenGL elsewhere, or on Windows when the player forces it
+      `d3dcompiler_47.dll`, loaded from System32 only, feature level 10.0 or more) and OpenGL 2.0 or more elsewhere, or on Windows when the player forces it
       (GLSL 1.20 through `SDL_GL_GetProcAddress`). Code: `native/hostkit/shell/rrhk_crt_shader.inc`, staged beside the shell.
     * **How it draws**: after `SDL_RenderFlush` the pass saves every state it sets and puts it back, so SDL's own cache stays
       true and the menus, notices and chat are drawn after it unchanged. The picture goes into the pass's own texture, once a
@@ -726,7 +726,8 @@ X68000 too, without asking again**.
       brightness holds, and the renderers agree with each other.
   * Since stage 2, F3's notice names every filter in the five game languages (before, only « Sharp pixels » was translated,
     and only to French). Open: the mask and frame overlays are made on the CPU at the output's size when it changes (about
-    8 million texels at 4K, one hitch per resize); a small tiled mask would avoid it.
+    8 million texels at 4K, one hitch per resize); a small tiled mask would avoid it. The pass compiles its shaders on the first
+    CRT frame (a short hitch, once a run); compiling them when the run opens would avoid it.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and

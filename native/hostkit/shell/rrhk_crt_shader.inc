@@ -9,6 +9,7 @@
  * below feature level 10.0, no d3dcompiler_47.dll, or a shader the driver refuses: said once on stderr, never retried in that
  * run. Presentation only: it reads the finished picture; nothing reaches the machine, its state or the netplay digest.
  * Included by rrhk_video.c only; staged beside the shell (retrorecomp/hostkit.py SHELL_INCLUDED). */
+#include <stdio.h>
 #include "rrhk_crts.inc"
 
 typedef struct RrhkCrtPass {
@@ -97,7 +98,11 @@ static bool crt_d3d_compile(CrtCompile compile, const char *source, size_t size,
 
 static bool crt_d3d_create(ID3D11Device *device) {
     static HMODULE library;
-    if (!library) library = LoadLibraryA("d3dcompiler_47.dll");
+    /* System32 only: a d3dcompiler_47.dll placed beside a game's executable is never loaded */
+#ifndef LOAD_LIBRARY_SEARCH_SYSTEM32
+#define LOAD_LIBRARY_SEARCH_SYSTEM32 0x00000800
+#endif
+    if (!library) library = LoadLibraryExA("d3dcompiler_47.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
     CrtCompile compile = library ? (CrtCompile)(void *)GetProcAddress(library, "D3DCompile") : NULL;
     if (!compile) { crt_unavailable("no d3dcompiler_47.dll"); return false; }
     if (ID3D11Device_GetFeatureLevel(device) < D3D_FEATURE_LEVEL_10_0) { crt_unavailable("Direct3D feature level below 10.0"); return false; }
@@ -308,6 +313,15 @@ typedef struct {
 } CrtGl;
 static CrtGl gl;
 
+/* The context's version (GL_VERSION begins "major.minor"): the pass needs OpenGL 2.0. Asked before any 2.0 function is looked up,
+ * since glXGetProcAddress answers for functions a context does not have. */
+static bool crt_gl_version_2(void) {
+    const GLubyte *(APIENTRY *get_string)(GLenum) = (const GLubyte *(APIENTRY *)(GLenum))SDL_GL_GetProcAddress("glGetString");
+    const char *version = get_string ? (const char *)get_string(GL_VERSION) : NULL;
+    int major = 0, minor = 0;
+    return version && sscanf(version, "%d.%d", &major, &minor) == 2 && major >= 2;
+}
+
 static bool crt_gl_load(void) {
     void **slots = (void **)&gl;
     static const char *const names[] = {"glGetIntegerv", "glGetString", "glIsEnabled", "glEnable", "glDisable", "glViewport",
@@ -342,6 +356,7 @@ static void crt_gl_release(void) {
 }
 
 static bool crt_gl_create(void) {
+    if (!crt_gl_version_2()) { crt_unavailable("OpenGL below 2.0"); return false; }
     if (!crt_gl_load()) { crt_unavailable("OpenGL 2.0 functions missing"); return false; }
     const char *renderer = (const char *)gl.GetString(GL_RENDERER);
     if (renderer && (strstr(renderer, "llvmpipe") || strstr(renderer, "softpipe") || strstr(renderer, "Software Rasterizer") ||
