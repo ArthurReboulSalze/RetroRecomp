@@ -202,6 +202,13 @@
       {"title": "Gryzor", "category": "joystick-fire", "reason": "Reads only the stick's default fire line (pin 6, bit 4): the pad's main button and the routes' fire were on the second line until 27 November 2026; the panel's largest first learning pass (13.6 million steps)", "source": "docs/AMSTRAD_CPC.md"},
       {"title": "Head over Heels", "category": "route-depth", "reason": "A trainer asks three « (o/n)? » questions in French; the routes then stay on its main menu and never start a game, even on the 18,000-frame route", "source": "docs/AMSTRAD_CPC.md"},
       {"title": "Robocop", "category": "start-command", "reason": "Started by RUN\"M, the one name every other program's name starts with: the catalogue rule of the start command, not a DISC program", "source": "docs/AMSTRAD_CPC.md"}
+    ],
+    "zxs": [
+      {"title": "Arkanoid", "category": "floating-bus", "reason": "Syncs its frame on the floating bus (port 28FFh): froze without it, ran twice a frame when the bus was sampled one T-state early (fixed 27 November 2026); the paddle is faster towards the ball by the game's own rule", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Elite", "category": "route-stop", "reason": "Its snapshot halts with interrupts disabled inside its own decryption about 50 frames in, in MAME 0.289 too: the title never animates and the report must say so (route_stop), not call it playing", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Match Day II", "category": "reviewed-start", "reason": "Polls the Fuller port every frame (an idle Fuller box is given by reviewed data), and its start picks « Kempston joystick » in a menu that waits for ever unless a Kempston answers at port 1Fh", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Robocop", "category": "128k-banks", "reason": "128K: the whole game lives in the paged banks, with sampled speech on the AY; starts through reviewed start data (a control menu, then a typed screen)", "source": "docs/ZX_SPECTRUM.md"},
+      {"title": "Jetpac", "category": "start-phase", "reason": "16K, a .z80 version 1 with no frame position: starts at the interrupt's end, so its random choices part from MAME 0.289's after frame 368 (a known limit, not adopted)", "source": "docs/ZX_SPECTRUM.md"}
     ]
   }
 }

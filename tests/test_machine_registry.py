@@ -82,7 +82,10 @@ DECLINED = {
     # The Amstrad CPC (27 November 2026, same rule): on three disks beyond its panel (Carrier Command, Dark Side, Rigel's Revenge) the
     # patterns a conversion learned, given back to a fresh one, add no native instruction (the same native steps, 0 interpreted either
     # way) and save one learning pass, about 12 to 15 s of a 60 to 95 s conversion (QUALIFICATION.md, "Amstrad CPC"), with G16 `-`.
-    'path_sharing': {'msx', 'msx2', 'n64', 'sg1000', 'coleco', 'cpc'},
+    # The ZX Spectrum: declined on its measure of 27 November 2026, under the same rule. The native code each of the six delivered games
+    # learned at the Standard level replayed the two 18,000-frame long routes a deeper level adds: 0.000 % to 0.089 % of the instructions
+    # ran on the interpreter, which is all a received path could make native (QUALIFICATION.md, "ZX Spectrum, the exit"), with G16 `-`.
+    'path_sharing': {'msx', 'msx2', 'n64', 'sg1000', 'coleco', 'cpc', 'zxs'},
     # A runtime-feedback kind (native/runtime_feedback.h): a machine in development that records nothing yet may wait for it. The
     # lead reserves the new machines' kinds in one change, with the release that first needs one, so that the game stamps of
     # every machine move once, not once per new machine (21 Nov 2026). Empty since 1.10.0: the ZX Spectrum, SG-1000, ColecoVision
