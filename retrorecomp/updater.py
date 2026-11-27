@@ -20,8 +20,10 @@ import uuid
 import select
 import zipfile
 
-from . import __version__
+from . import __version__, tls_roots
 from .platforms import target_id
+
+tls_roots.ensure()      # Linux: find the distribution's CA bundle before the first HTTPS request
 
 
 REPOSITORY = "ArthurReboulSalze/RetroRecomp"
@@ -53,6 +55,7 @@ def _open_release_url(request: urllib.request.Request, timeout: int):
             raise UpdateConnectionError() from error
         raise UpdateServiceError() from error
     except OSError as error:
+        tls_roots.note_failure(error)
         raise UpdateConnectionError() from error
 
 
