@@ -62,7 +62,10 @@ The CRT looks count the console's own lines, not the rows of a raised internal r
 (interlaced modes, 31 kHz monitors) they draw no gaps, as those screens showed none. Without a graphics card (SDL's
 software renderer) the CRT looks are drawn flat and lighter. A mask darkens the picture: the looks give some
 brightness back, but bright colours can clip. They are presentation only: nothing reaches the game, its saves, its
-quick states or a multiplayer match. No frame cost has been timed, and physical latency is not measured.
+quick states or a multiplayer match. A light measure of the frame cost, taken on a busy PC (27 November 2026: a hidden
+window, 300 frames a look, one graphics card): with a CRT or LCD look the graphics card spends well under a millisecond on
+the whole frame at 1080p, 1440p and 4K (median), against a frame of 16.7 ms at 60 Hz. No look adds a frame to the queue:
+each is drawn before the frame's one present. Physical latency is not measured.
 
 The help screen (**F1**) shows **v<version>** at the right of its title row.
 The converter injects its own version during compilation for each console;

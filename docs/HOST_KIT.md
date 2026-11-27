@@ -768,6 +768,18 @@ X68000 too, without asking again**.
       `tools/crt_shader_selftest.py` (every style on both stages and every renderer; the sharp style keeps more of one-pixel
       stripes, the arcade mask is stronger, the real screen leaves the last picture on a black frame, the grid does not).
       No new third-party code: the styles, panels and response are ours (MIT); the saturation option is CRTS'.
+    * **Frame cost, a light measure on a busy PC** (27 November 2026, at Arthur's request; other sessions were building):
+      the kit's real shell around a stand-in machine, a hidden window of 1920 x 1080, 2560 x 1440 and 3840 x 2160, 300
+      frames a look after 40 of warm-up; GPU time of everything the frame draws (Direct3D 11 timestamp queries, OpenGL
+      `GL_TIME_ELAPSED`), CPU time from the iteration's start to just before the present. Medians on Direct3D 11: sharp
+      pixels 0.04 to 0.06 ms; the CRT pass, any style, 0.13 to 0.46 ms; stage 1's CRT 0.13 to 0.76 ms; the LCD's real
+      screen 0.04 to 0.14 ms; OpenGL alike (the pass 0.09 to 0.31 ms). 99th percentiles up to about 5 ms on that busy PC.
+      CPU under 0.65 ms a frame in every case (median). First frame: the pass's compile 0.11 to 0.22 s on Direct3D 11 (no
+      cache; now at the run's opening when it opens on a CRT look, 0.6 ms for that first frame then), about 2 ms on OpenGL
+      once the driver has cached it; stage 1's overlays 20 to 70 ms up to 1440p and up to 0.2 s at 4K (the full-size CPU
+      mask and grid, the open item above). No look adds a queued frame: the pass and stage 1 draw inside
+      `rrhk_present_picture`, into SDL's back buffer or the kit's own targets, before the frame's single
+      `SDL_RenderPresent`; none presents, swaps or flushes the GPU. Frame cost only; physical latency is not measured.
 
 Rows marked **pending** have no decision yet; the kit rule above applies to
 them (one behaviour for everyone, chosen with an A/B measurement and
