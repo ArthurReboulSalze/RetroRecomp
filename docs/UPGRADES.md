@@ -6403,3 +6403,15 @@ pins on a synthetic input.
   `gameboy_host.py` / `gameboy_runtime.py` do.
 - `tests/test_compilation_inputs.py` checks the classification of every
   machine's shell and entry.
+
+## SG-1000 and ColecoVision: supported (next release)
+
+Both profiles move from `experimental`, developer only, to **`supported`** (the owner's G14 of 27 November 2026, [QUALIFICATION.md](QUALIFICATION.md)):
+every installation lists them, the Linux converter takes them (`linux = 'witnessed'`), and the interface notes, the scan note and the delivery note of a
+report say so in the eight languages. What a conversion does is unchanged: the same translation, checks, player and routes.
+
+- **Stamps:** only the **game stamps of `sg1000` and `coleco`** move (their profile and conversion modules); no host or build stamp, and no other
+  machine's. No release carried these two machines, so no player's export is concerned; the maintainer's own exports reconvert once.
+- Paths are not shared (G16 `-`). The runtime-feedback kinds of the new machines are a separate, shared change with its own section.
+- `tools/campaign.py` reads the ColecoVision's ROM folder as `colecovision`, and `tools/campaign-risk-cases.json` lists four cases for each machine.
+

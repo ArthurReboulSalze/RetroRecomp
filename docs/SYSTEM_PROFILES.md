@@ -72,17 +72,17 @@ export to `Games/ZX Spectrum`, on the shared banked Z80 chain, with the Amstrad 
 (`zxs_rom48`, `zxs_rom128`). Its path section is `z80/zxs` (sources `snapshot` and `rom`), path order 20; its gameplay feedback kind is 28,
 reserved with the SG-1000's, the ColecoVision's and the CPC's (nothing is recorded under it yet, as on the MSX). See [ZX Spectrum](ZX_SPECTRUM.md).
 
-The **SG-1000** profile (`sg1000`, experimental and developer only, stage 3 of the machine) identifies a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as
+The **SG-1000** profile (`sg1000`, supported) identifies a `.sg`, or a `.bin`, `.rom` or ZIP that you choose as
 SG-1000 or that sits in a folder named `sg1000` (`sg-1000` and `sg_1000` too), and reads it (2 KiB to 48 KiB, plain ROM; no firmware and no option); its
-conversion translates the cartridge, checks it against the reference interpreter and delivers a game executable (no player is offered it yet), and it
+conversion translates the cartridge, checks it against the reference interpreter and delivers a game executable, and it
 exports to `Games/SG-1000`. Its path section is `z80/sg1000` (source `rom`), it uses the
 shared banked Z80 chain with its own machine description (`SG1000_MACHINE`, with the /NMI pin of the Pause button) and the shared TMS9918A, and its gameplay
 feedback kind is 29 (reserved; nothing is recorded under it yet). See [SG-1000](SG1000.md).
 
-The **ColecoVision** profile (`coleco`, experimental and developer only, stage 3 of the machine) identifies a `.col`, or a `.bin`, `.rom` or ZIP that you choose as
+The **ColecoVision** profile (`coleco`, supported) identifies a `.col`, or a `.bin`, `.rom` or ZIP that you choose as
 ColecoVision or that sits in a folder named `colecovision` (`coleco`, `coleco vision` and `coleco_vision` too) and begins with a header word, and reads it (4 KiB to
 32 KiB, plain ROM). It has one firmware option, `coleco_bios` (your own 8 KiB BIOS, required to convert, never shipped), whose digest is part of a request's identity;
-its conversion translates the cartridge with the BIOS, checks it against the reference interpreter and delivers a game executable (no player is offered it yet), and it exports to `Games/ColecoVision`. Its path section is `z80/coleco` (sources `rom` and `bios`), path order 24; it uses the shared banked Z80 chain with its own machine
+its conversion translates the cartridge with the BIOS, checks it against the reference interpreter and delivers a game executable, and it exports to `Games/ColecoVision`. Its path section is `z80/coleco` (sources `rom` and `bios`), path order 24; it uses the shared banked Z80 chain with its own machine
 description (`COLECO_MACHINE`, with the VDP's interrupt on /NMI) and its gameplay feedback kind is 30 (reserved; nothing is recorded under it yet). See [ColecoVision](COLECOVISION.md).
 
 The batch queue scans mixed folders recursively and routes recognized games to

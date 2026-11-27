@@ -1,6 +1,6 @@
-"""ColecoVision profile (experimental, developer only, in development: see docs/COLECOVISION.md).
+"""ColecoVision profile (supported, on the owner's acceptance of 27 November 2026: see docs/COLECOVISION.md).
 
-Stages 1 to 3 of the machine: the profile recognises a cartridge (a .col, or a .bin, .rom or ZIP chosen as ColecoVision or kept in a folder
+The profile recognises a cartridge (a .col, or a .bin, .rom or ZIP chosen as ColecoVision or kept in a folder
 named colecovision, beginning with a header word), reads it (4 KiB to 32 KiB, plain ROM), takes the one firmware option, the player's own
 BIOS, translates both, checks them against the reference interpreter and builds and delivers a game executable
 (retrorecomp/coleco_conversion.py; the player is native/coleco_machine/coleco_player.c on the host kit). What it is: the ColecoVision (NTSC) with two standard controllers, translated ahead of time by the shared banked
@@ -45,11 +45,9 @@ class ColecoProfile(SystemProfile):
     archived_rom_limits = (('.col', 0x8000),)
     export_folder = 'ColecoVision'
     video_modes = ('ntsc', 'pal')
-    status = 'experimental'
-    # Stages 1 to 3: it identifies files and converts cartridges for developers. Offered by installations that carry its profile, as the X68000 is.
-    developer_only = True
-    linux = 'pending'
-    scope_note = ('ColecoVision cartridges of 4 to 32 KiB, plain ROM only, with your own BIOS (never shipped); in development, converts for developers only (no player is offered it yet, no game has been played); '
+    status = 'supported'
+    linux = 'witnessed'                    # three games of the panel converted in WSL equal to Windows (docs/QUALIFICATION.md, 22 November 2026)
+    scope_note = ('ColecoVision cartridges of 4 to 32 KiB, plain ROM only, with your own BIOS (never shipped); '
                   'two standard controllers with their keypads; no Super Action Controller, roller or driving module, Super Game Module, MegaCart or other boards, no ADAM')
     # The machine has one processor; the sound chip and the video chip are chips of our own C, not CPUs.
     cpus = (Cpu('z80', 'main', 'cycles'),)

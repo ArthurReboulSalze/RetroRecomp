@@ -34,8 +34,8 @@ fallback stays counted and shown wherever it is used.
 | MSX | supported (since 1.7.5) | route depth on menu-driven games, independent hardware evidence, more cartridges, FM-PAC |
 | MSX2 | supported (since 1.7.5) | battery saves shown on an MSX2 game, route depth on menu-driven games, the command engine's timing, independent hardware evidence, FM-PAC |
 | MSX2+ | supported (since 1.7.6; experimental from 1.7.4) | route depth (Golvellius II's intro, Pachipro Densetsu's date entry), the Linux half of shared paths, MSX-MUSIC's level on games, independent hardware evidence, FM-PAC |
-| SG-1000 | experimental, developer only (stage 3: the conversion delivers a game executable, checked headless against the reference; no player is offered it, no game has been played) | the qualification gates on a small panel, then multiplayer and an optimisation pass |
-| ColecoVision | experimental, developer only (stage 3: the conversion delivers a game executable, checked headless against the reference; no player is offered it, no game has been played) | the qualification gates on a small panel, then multiplayer and an optimisation pass |
+| SG-1000 | supported (the owner's acceptance of 27 November 2026) | an optimisation pass, independent hardware evidence, a cartridge with its own RAM (The Castle) |
+| ColecoVision | supported (the owner's acceptance of 27 November 2026) | an optimisation pass, independent hardware evidence, the unexplained parting from MAME after a key press |
 | Adventure games (ScummVM) | supported (since 1.7.1), emulated and 0 % native | Ogg Vorbis, FLAC and MP3 decoders; more engine families witnessed on Linux |
 
 Each machine's progress through the qualification list, with its bar and percentage, is in the [README](../README.md#console-support) and in
@@ -190,14 +190,14 @@ Supported since 1.7.1 as a category of its own, emulated and 0 % native by desig
 
 Six machines close to the hardware already converted are in their study (November 2026), in this order. Each follows the
 playbook of [NEW_MACHINE.md](NEW_MACHINE.md): the study is approved first, then an experimental profile, the qualification
-list, multiplayer and an optimisation pass. The SG-1000 has its experimental profile since 21 November 2026, for developers only
-([SG1000.md](SG1000.md)): it converts cartridges into a game executable for developers, and no player is offered it yet.
+list, multiplayer and an optimisation pass. The SG-1000 and the ColecoVision have left that path: both are supported
+([SG1000.md](SG1000.md), [COLECOVISION.md](COLECOVISION.md)).
 
 | Machine | What is reused | What is new |
 | --- | --- | --- |
 | SG-1000 | the Z80, the TMS9918A video chip of the MSX, the SN76489 sound chip of the Master System | the board, the pads |
 | Game Boy Color | the Game Boy's CPU and engine, which already runs the colour mode | done as an experimental machine (22 November 2026, [GAME_BOY_COLOR.md](GAME_BOY_COLOR.md)): Color-only fixes of the runtime, no boot ROM, the link cable; the owner has not played it |
-| ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller; its experimental profile has begun for developers (21 November 2026, [COLECOVISION.md](COLECOVISION.md)) |
+| ColecoVision | the same three chips as the SG-1000 | the player's BIOS, the keypad controller; done, supported ([COLECOVISION.md](COLECOVISION.md)) |
 | Amstrad CPC | the Z80, the AY sound chip of the MSX | the video, the floppy drive, code loaded from disk |
 | ZX Spectrum | the Z80, the AY sound chip (128K) | the video, snapshots first (tapes later); study approved 21 November 2026, experimental profile begun ([ZX_SPECTRUM.md](ZX_SPECTRUM.md)) |
 | PC Engine CD | the PC Engine's CPU and video, the disc reading of the PlayStation | done as an experimental machine (21 November 2026, [PC_ENGINE_CD.md](PC_ENGINE_CD.md)): the drive, ADPCM and CD audio are the engine's, the player's System Card, code loaded from disc observed on the routes |

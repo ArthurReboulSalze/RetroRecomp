@@ -53,7 +53,8 @@ DECLINED = {
     # The ZX Spectrum (in development): keyboard and joystick routes of its own come with its conversion, as the MSX's.
     # The Amstrad CPC (in development): its routes will type the start command into BASIC, then play joystick and keyboard
     # events in a script of its own, as the MSX's do; it has no pad layout.
-    # The SG-1000 (stage 1: experimental, developer only, nothing converted yet) likewise: its routes come with its conversion.
+    # The SG-1000 and the ColecoVision play the routes of their own converters (sg1000_routes, coleco_routes: a start chosen on
+    # the reference, then a walk seeded by the cartridge; the ColecoVision's ends with a keypad tour), no random pad layout.
     'random_routes': {'x68', 'pce', 'pcecd', 'amiga', 'a1200', 'atarist', 'n64', 'psx', 'msx', 'msx2', 'msx2plus', 'zxs', 'sg1000', 'coleco', 'cpc'},
     # Libretro-thumbnails folders and the shared box-art provider tables (retrorecomp/artwork.py): every machine has one
     # since 1.7.0 (the Capcom boards use the MAME thumbnails).
