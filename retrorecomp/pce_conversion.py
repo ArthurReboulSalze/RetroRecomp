@@ -346,11 +346,11 @@ def damaged_backups(good: bytes) -> dict[str, bytes]:
     return damaged_cart_saves(good)
 
 
-def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_sha256: str, formatted: bytes = BACKUP_FORMATTED, extra: tuple = ()) -> dict:
+def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_sha256: str, extra: tuple = ()) -> dict:
     """The save beside the game, in fresh processes. No file: the formatted memory, and nothing written unless the game wrote. A
     valid file reaches the game. Damaged files are set aside whole and never block it. What the play route leaves in the memory
-    is there in the next process. With the same memory, the game and the interpreted reference stay equal on the play route. `formatted` is the memory a game
-    finds with no file (the PC Engine CD's is blank: the System Card formats it), `extra` the arguments every run takes (the CD's disc)."""
+    is there in the next process. With the same memory, the game and the interpreted reference stay equal on the play route. `extra`: the arguments every run takes
+    (the CD's disc)."""
     from .conversion_gates import require, require_same_file
     from .delivery_evidence import same_trace
 
@@ -364,11 +364,11 @@ def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_
     quiet.write_text(_script([]), encoding='ascii', newline='\n')
     none = folder / 'none.rrsram'
     start = run(executable, folder, 'backup-none', BACKUP_FRAMES, quiet, '--backup', str(none), *extra)
-    require(start['backup_start_hash'] == hex64(formatted) and not start['backup_notice'],
+    require(start['backup_start_hash'] == hex64(BACKUP_FORMATTED) and not start['backup_notice'],
             failure('without a file the game did not find the formatted memory.'))
     require(none.exists() == (start['backup_hash'] != start['backup_start_hash']),
             failure('a file was written though the game wrote nothing, or the reverse.'))
-    seeded = formatted[:-1] + b'\x5a'
+    seeded = BACKUP_FORMATTED[:-1] + b'\x5a'
     valid = folder / 'valid.rrsram'
     good = backup_file(seeded, rom_sha256)
     valid.write_bytes(good)
@@ -381,7 +381,7 @@ def check_backup(executable: Path, folder: Path, frames: int, script: Path, rom_
         path.write_bytes(data)
         result = run(executable, folder, f'backup-{label}', BACKUP_FRAMES, quiet, '--backup', str(path), *extra)
         aside = path.with_name(path.name + '.unusable-1')
-        require(result['backup_notice'] == 1 and result['backup_start_hash'] == hex64(formatted),
+        require(result['backup_notice'] == 1 and result['backup_start_hash'] == hex64(BACKUP_FORMATTED),
                 failure(f'a damaged file ({label}) was used.'))
         require(aside.is_file() and aside.read_bytes() == data, failure(f'a damaged file ({label}) was not kept as it was.'))
     route = folder / 'route.rrsram'

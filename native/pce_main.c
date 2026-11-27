@@ -398,12 +398,15 @@ static int execute(int argc, char **argv)
     }
 #endif
     pce_machine_policy(reference ? PCE_POLICY_REFERENCE : native_only ? PCE_POLICY_NATIVE_ONLY : PCE_POLICY_HYBRID);
-    /* The player's own record: in a window by default (F12 switches it), in a headless run only with RETRO_RECOMP_FEEDBACK=1. Standard boards only:
-     * the Street Fighter II board never records, so its F12 line stays off and the report says so. */
+    /* The player's own record: in a window by default (F12 switches it), in a headless run only with RETRO_RECOMP_FEEDBACK=1. Standard HuCard boards only:
+     * the Street Fighter II board and a disc never record (a disc's code is loaded from it and the conversion would not use the record), so their F12
+     * line stays off and the report says so. */
+#ifndef RR_PCE_DISC
     if (RR_PCE_BOARD != PCE_BOARD_SF2) {
         rr_feedback_start(!headless);
         if (!reference && !native_only) pce_machine_set_recorder(record_instruction, record_enabled);
     }
+#endif
     /* The player's save: beside the game in a window. A headless run touches no file unless --backup names one. */
     static wchar_t backup_file[32768];
     if (backup_path) {

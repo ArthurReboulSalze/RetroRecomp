@@ -34,8 +34,8 @@ class PcEngineCdProfile(SystemProfile):
     # The quick state is the 16-bit family's file, the payload the engine's checkpoint (as the PC Engine).
     quick_state_family = 'rr16'
     capabilities = Capabilities(battery=True)
-    linux = 'witnessed'     # The Addams Family on Debian 13 (WSL): the same CPU, RAM, picture and PCM hashes as Windows (docs/PC_ENGINE_CD.md)
-    # The PC Engine's record kind (RR_FB_PCE, 20), shared as the Amiga 1200 shares the Amiga's: nothing is recorded for a disc yet, and
+    linux = 'witnessed'     # the panel of nine on Debian 13 (WSL): the same routes and hashes as Windows (docs/PC_ENGINE_CD.md)
+    # The PC Engine's record kind (RR_FB_PCE, 20), shared as the Amiga 1200 shares the Amiga's: a disc game records nothing (native/pce_main.c), and
     # reserving no new number moves no shared header (native/runtime_feedback.h).
     feedback_kinds = frozenset({20})
     default_frames = 3600
