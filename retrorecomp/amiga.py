@@ -26,19 +26,27 @@ def converter_available() -> bool:
         'native/hostkit/adapters/rrhk_amiga.inc'))
 
 
-def slave_members(path: Path) -> list[str]:
-    """The member names of the archive's WHDLoad slaves (empty: none, or not an LHA archive)."""
+def _slaves(path: Path) -> list:
+    """The archive's WHDLoad slaves, as listed members (empty: none, or not an LHA archive)."""
     from . import amiga_lha
     try:
-        return [m.name for m in amiga_lha.members(Path(path)) if m.name.lower().endswith('.slave')]
+        return [m for m in amiga_lha.members(Path(path)) if m.name.lower().endswith('.slave')]
     except (OSError, ValueError):
         return []
 
 
+def slave_members(path: Path) -> list[str]:
+    """The member names of the archive's WHDLoad slaves (empty: none, or not an LHA archive)."""
+    return [m.name for m in _slaves(path)]
+
+
 def slave_member(path: Path) -> str | None:
-    """The member name of the archive's only WHDLoad slave, or None (no slave, several slaves, not an LHA archive)."""
-    slaves = slave_members(path)
-    return slaves[0] if len(slaves) == 1 else None
+    """The member name of the install's slave, chosen as the conversion chooses it (`amiga_whdload.slave_choice`: a lone
+    slave, or the one named as the install's folder beside its intro, editor or helper), or None (no slave, a collection
+    of several games, not an LHA archive)."""
+    from . import amiga_whdload
+    chosen = amiga_whdload.slave_choice(_slaves(path))
+    return chosen[0].name if len(chosen) == 1 else None
 
 
 # The sentence of an archive that holds several slaves (interface string `amiga_several_slaves`, translated at display time).
@@ -46,7 +54,8 @@ SEVERAL_SLAVES = 'holds several WHDLoad slaves ({log}): one install per archive 
 
 
 def no_install_reason(path: Path) -> str:
-    """Why an .lha that slave_member refused is no Amiga install: no slave at all, or several (one install per archive)."""
+    """Why an .lha that slave_member refused is no Amiga install: no slave at all, or several of which none is the install's
+    own (a collection of games: one install per archive)."""
     slaves = slave_members(path)
     if len(slaves) > 1:
         names = ', '.join(Path(name).name for name in slaves[:3]) + (', …' if len(slaves) > 3 else '')

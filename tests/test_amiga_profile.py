@@ -99,8 +99,45 @@ class ProfileTests(unittest.TestCase):
         with self.assertRaises(ConversionError):
             amiga.read_input(path)
 
+    def test_the_game_slave_beside_its_intro_editor_or_helper_is_chosen_as_the_conversion_chooses(self):
+        # The detection used to refuse every archive with two slaves while the install itself chose the game's: 25 archives of
+        # a player's library (an Intro, an editor, a save-disk maker beside the game) were refused before the conversion ran.
+        for helper in ('Game/Intro.Slave', 'Game/GameEditor.Slave', 'Game/getsavedisk.slave'):
+            with self.subTest(helper):
+                path = self.write(install(helper, 'Game/Game.Slave'))
+                self.assertEqual(amiga.slave_member(path), 'Game/Game.Slave')
+                self.assertIs(profile_for_path(path), get_profile('amiga'))
+                self.assertEqual(amiga.read_input(path).slave_path, 'Game/Game.Slave')
+
+    def test_the_same_slave_also_kept_in_the_data_folder_takes_the_one_in_the_install_folder(self):
+        path = self.write(install('Game/data/Game.slave', 'Game/Game.Slave'))
+        self.assertEqual(amiga.slave_member(path), 'Game/Game.Slave')
+        self.assertIs(profile_for_path(path), get_profile('amiga'))
+        self.assertEqual(amiga.read_input(path).slave_path, 'Game/Game.Slave')
+
+    def test_two_slaves_named_as_the_folder_and_not_one_file_at_its_top_are_refused_not_guessed(self):
+        for names in (('Game/a/Game.slave', 'Game/b/Game.slave'), ('Game/Game.Slave', 'Game/NTSC/Game.Slave')):
+            with self.subTest(names):
+                blob = (level1(names[0], hunk_file(slave_code())) + level1(names[1], hunk_file(slave_code(kick=None, version=16)))
+                        + level1('Game/data/Disk.1', b'\x01' * 64) + b'\x00')
+                path = self.write(blob)
+                self.assertIsNone(amiga.slave_member(path))
+                with self.assertRaisesRegex(UnsupportedConsoleError, 'holds several WHDLoad slaves'):
+                    profile_for_path(path)
+                with self.assertRaises(ConversionError):
+                    amiga.read_input(path)
+
+    def test_a_collection_of_games_is_refused_not_guessed(self):
+        # A game and its data disk, or a series in one archive: no slave is named as the install's folder.
+        path = self.write(install('Pack/Populous.Slave', 'Pack/Challenge.Slave'))
+        self.assertIsNone(amiga.slave_member(path))
+        with self.assertRaisesRegex(UnsupportedConsoleError, 'holds several WHDLoad slaves'):
+            profile_for_path(path)
+        with self.assertRaises(ConversionError):
+            amiga.read_input(path)
+
     def test_the_refusal_says_several_slaves_and_is_translated(self):
-        # Archives with a helper slave beside the game's (Legend, 3D Pool...) were refused with "holds no WHDLoad slave".
+        # Archives that hold several games were refused with "holds no WHDLoad slave".
         from retrorecomp.i18n import STRINGS, log_text
         self.assertEqual(amiga.SEVERAL_SLAVES, STRINGS['amiga_several_slaves'][0])
         path = self.write(install('Game/One.Slave', 'Game/Two.Slave'))

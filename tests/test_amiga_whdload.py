@@ -188,7 +188,15 @@ class InstallTest(unittest.TestCase):
         blob = self.archive(('Game/GameIntro.Slave', 'Game/Game.Slave'))
         chosen = W.install(blob)
         self.assertEqual((chosen.slave_path, chosen.other_slaves), ('Game/Game.Slave', ('Game/GameIntro.Slave',)))
-        two = self.archive(('Game/Game.Slave', 'Game/more/Game.Slave'))           # two of that name: refused, never guessed
+        # The same slave also kept deeper (its data folder): the copy in the install's folder is the one its icon starts.
+        same = self.archive(('Game/data/Game.Slave', 'Game/Game.Slave'))
+        self.assertEqual(W.install(same).slave_path, 'Game/Game.Slave')
+        # Two different slaves of that name: refused, never guessed.
+        blob = (level1('Game/Game.Slave', hunk_file(slave_code())) + level1('Game/more/Game.Slave', hunk_file(slave_code(version=16)))
+                + level1('Game/data/Disk.1', b'\x01' * 64) + b'\x00')
+        with self.assertRaisesRegex(W.InstallError, 'choose one slave'):
+            W.install(blob)
+        two = self.archive(('Game/a/Game.Slave', 'Game/b/Game.Slave'))            # the same file twice, none at the top
         with self.assertRaisesRegex(W.InstallError, 'choose one slave'):
             W.install(two)
 
