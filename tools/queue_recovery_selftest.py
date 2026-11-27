@@ -40,8 +40,10 @@ def main():
                 finally:application.close()
         assert not any(root.glob('*.sms')), 'Recovery must not create or read a source ROM'
         journal=BatchJournal.create(data/'pending-batches',items,root/'Games');journal.close()
+        # The shared base is off: with it on, the worker first downloads and applies the online base (network, minutes),
+        # which this check of the queue is not about.
         with patch_gui('data_directory',return_value=data), \
-                patch_gui('load_preferences',return_value={}), \
+                patch_gui('load_preferences',return_value={'use_shared_base':False}), \
                 patch_gui('save_preferences'):
             window=tk.Tk();window.withdraw();application=Application(window)
             try:
@@ -62,8 +64,10 @@ def main():
                         assert event[0]!='fatal',event
                         if event[0]=='done':break
                 assert application.recovered_batch.pending_items()==[items[1]]
-                application.busy=False
-            finally:application.close()
+            finally:
+                # A failed check above leaves the window busy: closing would then ask how to stop in a modal dialog
+                # nobody can answer on a hidden window, and the test would wait forever instead of failing.
+                application.busy=False;application.close()
             window=tk.Tk();window.withdraw();application=Application(window)
             try:
                 assert application.restore_queue() and list(application.items.values())==[items[1]]
