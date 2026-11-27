@@ -499,6 +499,33 @@ changes for a player:
 no export is rebuilt or rediscovered. The role stamps of all 27 machines were compared before and after: identical. Locale files
 (`assets/locales`) gain one key, `base_error_toolarge`.
 
+## Every machine: automatic console detection refuses firmware and other machines' files, and finds MSX1 games it missed (next release)
+
+Found on 27 November 2026 by running the detection of the window's drop and of `batch --system auto` over a player's whole library
+(12,347 cartridge, disk and disc files) and over his frontend's bios folder (1,503 files). What changes for a player:
+- **MSX1 games are found.** A loose `.rom` (or the one `.rom` of a ZIP) is an MSX cartridge when the BIOS would take it: an "AB"
+  header with an INIT pointer below C000h. The sniff used to want every routine pointer in range and the reserved bytes empty, which
+  refused 77 of 439 MSX1 zips (Hydlide 3 and many others write text over those fields): they said « Unknown console ». 76 of the 77
+  are found now; R-Type (its header is in the last bank of a 384 KiB image) still needs MSX chosen in the console menu.
+- **Firmware is refused, with its reason, instead of converted as a game.** The Mega-CD boot ROM (Mega Drive header), the BS-X
+  BIOS, the Super Game Boy cartridges and the Sufami Turbo base (Super Nintendo), the PC Engine CD System Card dropped as a `.pce`, and
+  the MSX system ROMs (disk, MSX-MUSIC, BASIC and language extensions, RS-232C, machines' whole firmware) give a sentence that says
+  what the file is. Nothing is converted from them; the firmware search still finds the System Card and the MSX BIOS as before.
+- **Sufami Turbo games are refused as unsupported** (they need the Sufami Turbo base cartridge in the console), instead of being
+  converted as plain Super Nintendo games.
+- **A `.d88` of an X1, PC-88 or PC-98 (2D, 2DD, 1D, 1DD) and a `.m3u` of discs are no longer taken for X68000 disks**: the X68000
+  claims a `.d88` only when its header says 2HD and a playlist only when it lists X68000 floppy images.
+- **An Amiga `.lha` with several WHDLoad slaves says so**: « holds several WHDLoad slaves (...): one install per archive is
+  expected », in the eight languages, where it said it held none.
+- The disks of an Amstrad CPC game named « (Disk 1 of 2) » are queued one by one: they were grouped into an MSX2+ playlist that failed.
+
+**Stamps**: the game stamp of every machine moves (the shared `retrorecomp/cartridge16.py`, the Mega Drive and Super Nintendo
+readers' firmware checks); this is on top of the 1.10.0 shared header, which moves them already. The MSX, MSX2 and MSX2+
+game stamps (`msx_rom`, `systems/msx`), the Amiga 500 and 1200's (`amiga`, `systems/amiga`), the X68000's (`systems/x68000`), the PC
+Engine's (`pce_rom`) and the PC Engine CD's (`pcecd_card`) move for their own file. Interface modules changed without a stamp:
+`rom_sources` (the CPC disks), `i18n` and the locale files (`amiga_several_slaves`). Exports are upgraded (rebuilt), never
+rediscovered; no learned path is lost.
+
 ## ZX Spectrum: converted through batch and the window on a developer tree (next release)
 
 `zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`
