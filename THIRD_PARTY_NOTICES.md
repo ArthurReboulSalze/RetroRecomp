@@ -73,8 +73,8 @@ shipped; you supply your own IPL and font ROM.
 | xBR-lv2 pixel-art filter | MIT; copyright Hyllian; CPU/SDL adaptation by RetroRecomp | [Full text and pinned source](licenses/xbr.md) |
 | SingleStepTests/z80 independent vectors | MIT; copyright SingleStepTests | [Full text](licenses/SingleStepTests-z80.md) |
 | SingleStepTests/m68000 independent CPU fixtures | MIT; copyright SingleStepTests; development tests only | [Full text](licenses/SingleStepTests-m68000.md) |
-| arcanite24/gb-recompiled (Game Boy compiler and generated runtime; its colour compatibility palette tables come from SameBoy) | MIT; copyright arcanite24. SameBoy tables: Expat (MIT); copyright Lior Halphon | [Full text](licenses/gb-recompiled.md) |
-| Dear ImGui in the Game Boy runtime | MIT; copyright Omar Cornut | [Full text](licenses/dear-imgui.md) |
+| arcanite24/gb-recompiled (Game Boy and Game Boy Color compiler and generated runtime; its colour compatibility palette tables come from SameBoy) | MIT; copyright arcanite24. SameBoy tables: Expat (MIT); copyright Lior Halphon | [Full text](licenses/gb-recompiled.md) |
+| Dear ImGui in the Game Boy and Game Boy Color runtime | MIT; copyright Omar Cornut | [Full text](licenses/dear-imgui.md) |
 | mstan/nesrecomp NES compiler and generated cycle runtime | PolyForm Noncommercial 1.0.0; copyright Matthew Stanley | [Full text](licenses/nesrecomp.md) |
 | emu2413 in the NES runtime | MIT; copyright Mitsutaka Okazaki | [Full text](licenses/emu2413.md) |
 | segagenesisrecomp and m68k-recomp-core (Mega Drive) | PolyForm Noncommercial 1.0.0 plus retained vendor licences | [Notices](licenses/segagenesisrecomp.md) |
