@@ -187,6 +187,8 @@ void rrhk_load_bindings(void) {
     /* The stretched mode (1.7.4) is only ever written in the kit's key: a machine that reads its former keys in settings_loaded
      * and knows three modes (Master System, Game Gear, Game Boy) keeps it all the same. */
     if (rr_ini_int(rrhk.video_section, L"display_mode", -1, rrhk.read_file) == 3) rrhk.fullscreen = 3;
+    /* D35: the LCD grid is a handheld's; a machine without an LCD screen shows sharp pixels for it */
+    if (rrhk.filter == RR_FILTER_LCD && !m->lcd_screen) rrhk.filter = 0;
     wchar_t sec[64], entry[48];
     /* A stored key 0 or button -1 is "no binding" on every machine: F2 writes it when a swap leaves an action without its key
      * (rrhk_assign), and the Delete of a clearable machine (X68000) writes it too. A missing entry keeps the default. */

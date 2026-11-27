@@ -156,7 +156,7 @@ class Game:
     def __init__(self, executable: Path, out: Path, session: bool = True, frames: int | None = None, menu_at: int = 0,
                  restart_at: int = 0, chat_at: int = 0, load_at: int = 0, driven: bool = False, sticks: bool = False,
                  save: int | None = None, option_at: int = 0, keys: bool = False, pass_at: int = 0, pass_tile: bool = False,
-                 link: bool = False):
+                 link: bool = False, look: int = 0):
         # A session is never a hidden-window test run (the kit ignores the pipes there): session runs set no frame count and
         # end by STOP or a closed pipe; SDL's dummy drivers keep every window and sound device away.
         env = dict(os.environ, SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_VSYNC='0')
@@ -177,6 +177,9 @@ class Game:
         env.pop('SESSION_FAKE_PASS_AT', None)
         env.pop('SESSION_FAKE_PASS_TILE', None)
         env.pop('SESSION_FAKE_LINK', None)
+        env.pop('SESSION_FAKE_FILTER', None)
+        if look:
+            env['SESSION_FAKE_FILTER'] = str(look)
         if link:
             env['SESSION_FAKE_LINK'] = '1'
         if pass_tile:
@@ -346,37 +349,12 @@ def stop(game: Game) -> None:
     assert struct.unpack('<H', exit_payload)[0] == CONSTANTS['RRHK_EXIT_STOPPED']     # not the player closing the window
 
 
-def scenarios(executable: Path, out: Path) -> list[str]:
-    passed = []
-
-    # 1. Alone: no session, the game reads its own (absent) controls, F8 still reaches the quick-state file.
-    game = Game(executable, out, session=False, frames=200)
-    code, result, text = game.finish()
-    assert code == 0, text
-    assert int(result['frames']) == 200 and int(result['quick']) == 1, result
-    assert int(result['digest'], 16) == digest_of([(0, 0, 0, 0)] * 200), result
-    passed.append('alone: as before (200 frames, F8 saves, digest of all-zero pads)')
-
-    # 2. Delay: four ports, every word from the worker, players 3 and 4 included; digests every 50 frames; F8 refused.
-    game = Game(executable, out)
-    setup(game)
-    history = []
-    for frame in range(300):
-        live_frame(game, frame, (0, *remote(frame)), history)
-        if frame % 50 == 49:
-            check_digest(game, history)
-    stop(game)
-    code, result, text = game.finish()
-    assert code == 0, text
-    assert int(result['frames']) == 300 and int(result['live']) == 300 and int(result['silent']) == 0, result
-    assert int(result['quick']) == 0, result               # F8 at frame 10: never the player's own quick-state file
-    assert int(result['options']) == 1, result
-    assert int(result['digest'], 16) == digest_of(history), result
-    passed.append('delay: 300 frames, 4 ports, digests equal, F8 never the player\'s own quick state')
-
-    # 3. Rollback: a snapshot before every frame; every 25 frames, back 6 frames, 6 silent frames with other words, live.
-    game = Game(executable, out)
+def rollback_match(executable: Path, out: Path, look: int) -> int:
+    """Scenario 3: a snapshot before every frame; every 25 frames, back 6 frames, 6 silent frames with other words, live. look: the
+    filter the game shows its picture with (0 plain). Returns the number of corrections."""
+    game = Game(executable, out, look=look)
     setup(game, depth=16)
+
     history = []
     corrections = 0
     for frame in range(300):
@@ -407,7 +385,46 @@ def scenarios(executable: Path, out: Path) -> list[str]:
     # writes its own back at the end (session_save_commit; Arthur, 19 Nov 2026).
     assert int(result['effects_off']) == 300 + 6 * corrections, result
     assert int(result['digest'], 16) == digest_of(history), result
-    passed.append(f'rollback: {corrections} corrections of 6 frames, no frame of the match with side effects, digests equal')
+    return corrections
+
+
+CURVED_CRT = 5     # native/display_settings.h RR_FILTER_CRT_CURVED (HOST_KIT D35)
+
+
+def scenarios(executable: Path, out: Path) -> list[str]:
+    passed = []
+
+    # 1. Alone: no session, the game reads its own (absent) controls, F8 still reaches the quick-state file.
+    game = Game(executable, out, session=False, frames=200)
+    code, result, text = game.finish()
+    assert code == 0, text
+    assert int(result['frames']) == 200 and int(result['quick']) == 1, result
+    assert int(result['digest'], 16) == digest_of([(0, 0, 0, 0)] * 200), result
+    passed.append('alone: as before (200 frames, F8 saves, digest of all-zero pads)')
+
+    # 2. Delay: four ports, every word from the worker, players 3 and 4 included; digests every 50 frames; F8 refused.
+    game = Game(executable, out)
+    setup(game)
+    history = []
+    for frame in range(300):
+        live_frame(game, frame, (0, *remote(frame)), history)
+        if frame % 50 == 49:
+            check_digest(game, history)
+    stop(game)
+    code, result, text = game.finish()
+    assert code == 0, text
+    assert int(result['frames']) == 300 and int(result['live']) == 300 and int(result['silent']) == 0, result
+    assert int(result['quick']) == 0, result               # F8 at frame 10: never the player's own quick-state file
+    assert int(result['options']) == 1, result
+    assert int(result['digest'], 16) == digest_of(history), result
+    passed.append('delay: 300 frames, 4 ports, digests equal, F8 never the player\'s own quick state')
+
+    # 3. Rollback: a snapshot before every frame; every 25 frames, back 6 frames, 6 silent frames with other words, live.
+    # Run twice: plain, then with the curved CRT look on (HOST_KIT D35: presentation only, the same digests).
+    for look in (0, CURVED_CRT):
+        corrections = rollback_match(executable, out, look)
+        passed.append(f'rollback: {corrections} corrections of 6 frames, no frame of the match with side effects, digests equal'
+                      + (' (with the curved CRT look on: the same)' if look else ''))
 
     # 4. A guest: no side effects at all (its cartridge save is never written).
     game = Game(executable, out)
@@ -787,8 +804,8 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
     # 27. A computer: the host types (CAP_KEYBOARD, LOCALs of 24 bytes with SYS_KEYBOARD and its keys), a guest's LOCAL carries
     # none; a RUN with RUN_KEYS gives the host's keys to the machine (two copies fed the same RUNs agree).
     digests = []
-    for guest in (False, True):
-        game = Game(executable, out, keys=True)
+    for guest in (False, True):     # the guest shows the curved CRT look, the host sharp pixels (D35): still equal
+        game = Game(executable, out, keys=True, look=CURVED_CRT if guest else 0)
         hello = game.expect('RRHK_MSG_HELLO')
         assert struct.unpack_from('<HBB', hello)[2] & CONSTANTS['RRHK_CAP_KEYBOARD'], 'no CAP_KEYBOARD in the HELLO'
         game.pending.insert(0, ('RRHK_MSG_HELLO', hello))
@@ -815,7 +832,7 @@ def abi9_scenarios(executable: Path, out: Path) -> list[str]:
         assert code == 0, (code, result, text)
     assert digests[0] == digests[1], 'the host and a guest fed the same RUNs differ'
     passed.append('keyboard: CAP_KEYBOARD, the host\'s LOCALs carry its keys (SYS_KEYBOARD), a guest\'s none, RUN_KEYS read by '
-                  'the machine, host and guest equal')
+                  'the machine, host and guest equal (the guest with the curved CRT look on)')
 
     # 28. Turns: TURNS says the mode, the holder and the names; the holder's pass (rrhk_session_pass) rides one frame's LOCALs
     # as SYS_PASS; a guest who does not hold the controls asks nothing; a TURNS that breaks its rules ends the session.

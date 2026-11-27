@@ -289,6 +289,7 @@ typedef struct RrhkMachine {
     void (*sound_ready)(void);
     /* Game Boy (phase 5). */
     bool even_scale2x;                /* Scale2x shows the picture at an even whole multiple (the Game Boy sets it; the Master System and Game Gear apply the same rule in their own game_rect) */
+    bool lcd_screen;                  /* a handheld's LCD: F3 also offers the LCD grid (HOST_KIT D35) */
     /* Sticks, the graphics page, larger pictures, rumble and discs (1.7.0, HOST_KIT.md section 2.4 and D14). Every field is
      * off when left out (0, false, NULL): a machine that declares none of them behaves exactly as before. */
     int analog_sticks;                /* sticks per player the machine reads with rrhk_pad_axes (1 or 2). Not 0: the left stick no

@@ -321,6 +321,7 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
             /* Every graphics card is asked first (ACCELERATED: Direct3D 11/12, OpenGL); SDL's software renderer is the last
              * resort, and the player is told once (draw_notices). */
             r->software_notice = rrhk_software_fallback(info.name, SDL_GetCurrentVideoDriver());
+            r->software = info.name && !strcmp(info.name, "software");
             if (r->software_notice)
                 fprintf(stderr, "[host] no graphics acceleration: SDL's software renderer scales the picture on the CPU (fallback)\n");
             rrhk_sync.vsync = (info.flags & SDL_RENDERER_PRESENTVSYNC) != 0;
@@ -353,7 +354,9 @@ static bool open_run(const RrhkMachine *m, const char *title, int scale) {
     r->running = true;
     r->ran = true;      /* a guest that owns the loop has run its first frame when it first calls */
     const char *test_filter = r->test_frames ? getenv("RETRORECOMP_HOST_TEST_FILTER") : NULL;
-    if (test_filter && !strcmp(test_filter, "3")) rrhk.filter = 3;
+    /* 3 scanlines; 4 to 6 the CRT and LCD looks (D35), the LCD grid on a machine with an LCD screen only */
+    const int asked = test_filter && test_filter[0] >= '3' && test_filter[0] <= '6' && !test_filter[1] ? test_filter[0] - '0' : 0;
+    if (asked && (asked != RR_FILTER_LCD || m->lcd_screen)) rrhk.filter = asked;
     /* The graphics options (D14): the saved values, or in a hidden-window test run the defaults; then --gfx; applied once each. */
     if (m->gfx_option_count > 0) rrhk_gfx_start(r->test_frames != 0);
     quit_asked = false;
@@ -763,6 +766,7 @@ static void close_run(RrhkRun *r) {
     rr_menu_shutdown(); free(r->upscaled); if (r->tex) SDL_DestroyTexture(r->tex);
     rr_xbr_destroy(&r->xbr);
     rr_scanlines_destroy(&r->scanlines);
+    rr_look_destroy(&r->look);
     SDL_ShowCursor(SDL_ENABLE);
     SDL_DestroyRenderer(r->ren); SDL_DestroyWindow(r->win);
     r->ren = NULL; r->win = NULL; r->tex = NULL; r->upscaled = NULL;

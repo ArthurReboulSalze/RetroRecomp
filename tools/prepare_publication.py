@@ -312,6 +312,7 @@ native/host_control.h native/icon.c native/icon.h native/icon_checks.c
 native/input_checks.c native/launcher.c native/learning.c native/learning.h
 native/manifest.inc native/paths.c native/paths.h
 native/xbr_filter.h native/xbr_sdl.h native/xbr_checks.c tools/xbr_selftest.py
+native/crt_look_checks.c tools/crt_look_selftest.py tests/test_crt_looks.py
 native/scale2x.h native/planar_rows.h native/stereo_fir.h
 native/nes_sprite_shift.h native/nes_sprite_extra.inc
 native/pixel_optimization_checks.c tools/pixel_optimization_selftest.py

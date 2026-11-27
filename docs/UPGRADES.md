@@ -384,6 +384,22 @@ rasteriser that calls itself accelerated (Windows' WARP, Mesa's llvmpipe).
 
 **Stamps**: the host stamp of all 21 profiles; no game stamp, quick states unchanged.
 
+## Every machine: CRT and LCD looks in F3 (next release)
+
+The host kit's F3 gains **CRT flat**, **CRT curved** and, on the handhelds, **LCD grid** (decision
+[D35](HOST_KIT.md#d35)). These are host files only:
+- `native/scanlines.h` and `native/scanline_sdl.h`;
+- `native/display_settings.h`, `native/retro_menu.h` and `native/game_options.h`;
+- `native/runtime_catalog.inc` (three names);
+- the kit's shell, `hostkit.h` and `hostkit_internal.h`;
+- the Master System / Game Gear, Game Boy and Game Boy Advance adapters.
+
+So the host stamp of every host-kit machine moves and its exports are upgraded (rebuilt), never rediscovered. The
+game part is unchanged.
+
+Preferences: `[<Console>.Video] filter` takes 4 (CRT flat), 5 (CRT curved) and 6 (LCD grid). An export of the
+previous release reads those values as sharp pixels and keeps working.
+
 ## ZX Spectrum: converted through batch and the window on a developer tree (next release)
 
 `zxs_conversion.developer_available()` is True, as the SG-1000 and the ColecoVision are available: `RetroRecomp.py batch --system zxs`

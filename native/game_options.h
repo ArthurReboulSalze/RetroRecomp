@@ -500,8 +500,8 @@ static void rr_option_shared_rows(RrOptionRows *d) {
     }
 }
 static const char *rr_option_filter_name(int filter) {
-    static const char *const names[] = {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines"};
-    return rr_tr(names[filter >= 0 && filter < 4 ? filter : 0]);
+    static const char *const names[] = {"Sharp pixels", "xBR smooth", "Scale2x", "Scanlines", "CRT flat", "CRT curved", "LCD grid"};
+    return rr_tr(names[filter >= 0 && filter < 7 ? filter : 0]);
 }
 static const char *rr_option_mode_name(int mode) {
     static const char *const names[] = {"Windowed", "Pixel perfect", "Fit to screen", "Stretched"};

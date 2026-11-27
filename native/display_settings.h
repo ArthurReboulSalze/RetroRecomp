@@ -2,6 +2,12 @@
  * display_mode: 0 window, 1 pixel-perfect fullscreen, 2 fit fullscreen, 3 stretched fullscreen (1.7.4). The numbers of 0 to 2
  * never change, so a value saved by an earlier release means the same mode; an unknown value is the window. */
 #define RR_DISPLAY_MODES 4
+/* filter: 0 sharp pixels, 1 xBR, 2 Scale2x, 3 scanlines, 4 CRT flat, 5 CRT curved, 6 LCD grid (HOST_KIT D35; the handhelds only).
+ * The numbers never change; an unknown value is sharp pixels, so an older release reads 4 to 6 as sharp pixels. */
+#define RR_FILTERS 7
+#define RR_FILTER_CRT_FLAT 4
+#define RR_FILTER_CRT_CURVED 5
+#define RR_FILTER_LCD 6
 #ifndef RETRO_DISPLAY_SETTINGS_H
 #define RETRO_DISPLAY_SETTINGS_H
 #include "platform_io.h"
@@ -11,7 +17,7 @@ static void rr_display_load(const wchar_t *path, const wchar_t *section,
                             int *filter, int *mode) {
     int f = rr_ini_int(section, L"filter", 0, path);
     int m = rr_ini_int(section, L"display_mode", 0, path);
-    *filter = f >= 0 && f < 4 ? f : 0;
+    *filter = f >= 0 && f < RR_FILTERS ? f : 0;
     *mode = m >= 0 && m < RR_DISPLAY_MODES ? m : 0;
 }
 static int rr_display_save(const wchar_t *path, const wchar_t *dir,

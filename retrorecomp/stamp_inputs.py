@@ -277,6 +277,9 @@ NOT_INPUTS = (
     # The box filter of the sound chips (levels over guest cycles to samples): its header is the group `shares:audio_box` (the SG-1000 is the
     # first machine to build with it). tools/audio_box_selftest.py builds its checks, never in a game.
     'native/audio_box_checks.c',
+    # tools/crt_look_selftest.py: the checks of the CRT and LCD looks (HOST_KIT D35; their code is in scanlines.h and scanline_sdl.h),
+    # never in a game.
+    'native/crt_look_checks.c',
     # The Z80 chain's CPU state and the quick-state file around the shared envelope: their headers are the groups `shares:z80_chain_state` and
     # `shares:state_file` (the SG-1000 is the first machine to build with them). tools/z80_chain_state_selftest.py builds their checks, never in a game.
     'native/state_file_checks.c',
