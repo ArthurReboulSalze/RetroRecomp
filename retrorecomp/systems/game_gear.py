@@ -48,7 +48,7 @@ class GameGearProfile(SystemProfile):
     shared_knowledge = SharedKnowledge("stable", site_builder=True)
     host_adapter = "adapters/rrhk_sms.c"
     # delivery_evidence (G5 and G8, retrorecomp/sega_evidence.py); the banked Z80 chain (retrorecomp/z80_chain.py, cpu.py)
-    stamp_groups = ('conversion_gates', 'z80_main')
+    stamp_groups = ('conversion_gates', 'z80_main', 'hostkit_sprite_option')
     z80_machine = SEGA_MAPPER   # the same mapper and Z80 timing as the Master System
 
     def refine_match(self, path: Path, data: bytes | None):

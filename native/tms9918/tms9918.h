@@ -40,6 +40,10 @@ static inline int tms9918_irq(const Tms9918 *v) { return (v->status & 0x80) && (
  * `lines_per_frame` (262 NTSC, 313 PAL) the counter wraps. Returns 1 when it wrapped (a frame is complete). */
 int tms9918_line_end(Tms9918 *v, unsigned *line, unsigned lines_per_frame);
 
+/* Presentation only, off by default: draw the sprites past the fourth of a line too (the player's « sprite flicker reduction »). The
+ * fifth-sprite and collision flags, the state and everything the program reads stay as without it. */
+void tms9918_set_all_sprites(int on);
+
 /* The two halves of it, for a machine that moves its lines itself. */
 void tms9918_draw_line(Tms9918 *v, int line);
 void tms9918_check_line(Tms9918 *v, int line);

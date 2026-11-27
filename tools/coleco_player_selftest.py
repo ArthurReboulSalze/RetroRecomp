@@ -464,6 +464,20 @@ def prove_window(res: Results, exes: dict[str, Path], saved_state: Path, folder:
     # F8 saves, F9 loads, in play. The cartridge's frame count is the state the picture shows (the backdrop cycles every sixteen frames):
     # F8 at 40, F9 at 90, a key held 60-70 in between. After the load the count is what it was at 40, so frames 91.. show frames 41.. again (50
     # frames earlier is not a whole number of cycles: a game that merely went on would show something else).
+    # F5, sprite flicker reduction: off unless asked, saved in the preferences, and a picture switch only (this cartridge never puts more
+    # than four sprites on a line, so its pictures do not change; tools/tms9918_sprite_selftest.py checks what the switch draws).
+    def preference(folder: Path) -> str:
+        return ''.join(p.read_bytes().decode('utf-16' if p.read_bytes()[:2] in (b'\xff\xfe', b'\xfe\xff') else 'utf-8', errors='replace')
+                       for p in folder.rglob('*.ini'))
+
+    asked = window(probe, base / 'f5-on', 60, 'F5@20')
+    res.check(asked['code'] == 0 and 'reduce_sprite_flicker=1' in preference(base / 'f5-on'), 'F5 turns sprite flicker reduction on and saves it',
+              preference(base / 'f5-on')[-300:])
+    twice = window(probe, base / 'f5-off', 80, 'F5@20;F5@40')
+    res.check(twice['code'] == 0 and 'reduce_sprite_flicker=0' in preference(base / 'f5-off'), 'a second F5 turns it off again', preference(base / 'f5-off')[-300:])
+    plain_after = window(probe, base / 'f5-none', 60, '')
+    res.check('reduce_sprite_flicker' not in preference(base / 'f5-none'), 'a run that never pressed F5 writes no such preference')
+    res.check(asked['hashes'][30:] == plain_after['hashes'][30:], 'with it on, the pictures of a cartridge with no more than four sprites a line are the same')
     quick = window(probe, base / 'states', 170, 'F8@40;hold:Right@60-70;F9@90')
     q = quick['hashes']
     res.check(quick['code'] == 0 and len(q) == 171 and quick['state'].is_file() and quick['state'].stat().st_size > 60000,

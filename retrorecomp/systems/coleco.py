@@ -63,7 +63,7 @@ class ColecoProfile(SystemProfile):
     # The third-party components its games will compile in (retrorecomp/notices.py; the player shell's are added): the banked Z80
     # chain's generator and core, the corrected reference interpreter of the counted fallback. The BIOS is the player's own: no notice.
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md')
-    stamp_groups = ('z80_main', 'z80_chain_glue', 'tms9918', 'sn76489', 'audio_box', 'z80_chain_state', 'state_file', 'hostkit_keypad', 'hostkit_text', 'conversion_gates')
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'tms9918', 'sn76489', 'audio_box', 'z80_chain_state', 'state_file', 'hostkit_keypad', 'hostkit_text', 'hostkit_sprite_option', 'conversion_gates')
     firmware = ('bios',)
     option_keys = (OptionKey('coleco_bios', signature=False, kind='path', label='coleco_bios_label'),)
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project: the

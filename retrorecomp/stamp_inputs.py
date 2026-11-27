@@ -211,7 +211,7 @@ HOST_NATIVE = frozenset((
     # (the adapters of the machines on the kit are added from their profiles below)
     'hostkit/adapters/rrhk_x68k.inc', 'hostkit/adapters/rrhk_computer.inc', 'hostkit/adapters/rrhk_amiga.inc',
     'hostkit/adapters/rrhk_atarist.inc', 'hostkit/adapters/rrhk_n64.inc', 'hostkit/adapters/rrhk_keypad.inc',
-    'hostkit/adapters/rrhk_text.h',
+    'hostkit/adapters/rrhk_text.h', 'hostkit/adapters/rrhk_sprite_option.inc',
     # The Amstrad CPC's (in development, its adapter to come): the boot key sequence player and its key table.
     'hostkit/adapters/rrhk_boot_keys.h', 'hostkit/adapters/rrhk_cpc_keys.h')) | frozenset('hostkit/' + profile.host_adapter for profile in ALL_PROFILES
                                                     if profile.host_adapter)
@@ -292,6 +292,7 @@ NOT_INPUTS = (
     # tools/upd765_selftest.py and tools/cpc_hardware_selftest.py: the Amstrad CPC's chip checks, never in a game.
     'native/upd765/upd765_checks.c', 'native/cpc_machine/cpc_hardware_checks.c',
     'native/z80_learned_set_checks.c',   # tools/z80_learn_cap_selftest.py: the learned-window set has no bound, never in a game
+    'native/tms9918_sprite_checks.c',   # tools/tms9918_sprite_selftest.py: the sprite-flicker switch, never in a game
     'native/z80_contention_checks.c',   # tools/z80_contention_selftest.py: contention, emitter against reference, never in a game
     'native/z80_contention_gate.c',   # tools/z80_contention_loop_selftest.py: an authored contention rule for the step loop's lines, never in a game
     # The banked Z80 chain's copies between the translated registers and the reference CPU, for a machine without the Sega runner
@@ -1298,6 +1299,11 @@ INPUTS = _resolve({
     # calls; hashed by the machines whose adapter includes it only (the ColecoVision). Host role (in HOST_NATIVE above).
     'shares:hostkit_keypad': (
         'native/hostkit/adapters/rrhk_keypad.inc',
+    ),
+    # The player's « sprite flicker reduction » (F5: its key, menu row, help line and preference), one text for the adapters whose video
+    # chip drops sprites past a per-line limit (Master System, Game Gear, SG-1000, ColecoVision). Host role (in HOST_NATIVE above).
+    'shares:hostkit_sprite_option': (
+        'native/hostkit/adapters/rrhk_sprite_option.inc',
     ),
     # One adapter text in the five game languages, read for the current game language (docs/HOST_KIT.md 2.6): header only, included by
     # the adapters whose own words are not in the catalogue yet; hashed by the machines that include it (the ColecoVision, through the

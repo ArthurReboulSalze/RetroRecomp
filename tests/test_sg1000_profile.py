@@ -39,7 +39,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual((SG1000_MACHINE.regions.region_bits, SG1000_MACHINE.regions.sources), (13, ('cartridge',)))
 
     def test_it_reuses_the_chain_the_video_chip_and_the_gates_and_no_bios(self):
-        self.assertEqual(SG1000.stamp_groups, ('z80_main', 'z80_chain_glue', 'tms9918', 'sn76489', 'audio_box', 'z80_chain_state', 'state_file', 'conversion_gates'))
+        self.assertEqual(SG1000.stamp_groups, ('z80_main', 'z80_chain_glue', 'tms9918', 'sn76489', 'audio_box', 'z80_chain_state', 'state_file', 'hostkit_sprite_option', 'conversion_gates'))
         self.assertEqual(SG1000.notice_files, ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md'))
         self.assertEqual(SG1000.optional_notice_files, ())
 

@@ -481,6 +481,27 @@ hand (the Spectrum's touch of 4f7f1fef is gone), and an unchanged project still 
 (`shares:z80_chain_glue` gains `retrorecomp.resource_rebuild`; their builders' game CMake lines change); the compiled game is the
 same; nothing else.
 
+## SG-1000 and ColecoVision: sprite flicker reduction (F5), the Master System's option; one shared text (next release)
+
+The TMS9918A shows four sprites a line. The SG-1000 and the ColecoVision now have the Master System's **F5** option (off by default,
+saved in `[SG1000.Video]` / `[ColecoVision.Video] reduce_sprite_flicker`, the same strings, menu row, icon and help line, from one new
+piece `native/hostkit/adapters/rrhk_sprite_option.inc` that the Master System and Game Gear adapter uses too). Turned on, the chip also
+draws the sprites past the fourth, behind the others (`tms9918_set_all_sprites`, `native/tms9918`): a switch of the picture, not part of
+the chip's state, so the fifth-sprite and collision flags, the quick states and the multiplayer digest are unchanged, and each player of
+a match chooses their own (the Master System keeps sealing its option for the session). It can show a sprite a game meant the limit to
+hide (Bump 'N' Jump draws cars over its status line).
+
+- **Off is the old picture**: every frame row of Bump 'N' Jump over 2,100 frames is equal to the old chip's; with it on, CPU, RAM, sound
+  and PC are equal on every row and only the pictures differ (438 frames). During a jump every car is whole.
+- **MSX untouched** (the shared line renderer; the V9938 never asks): the final checks of an MSX1 and an MSX2 game are equal to main's.
+- **Master System and Game Gear**: behaviour and screens of the menus and help equal to main's (checked by building a game of each and
+  driving the old and new adapter on probe copies); multiplayer sealing read in the code, not run.
+- Checks: `tools/tms9918_sprite_selftest.py` (44), `tests/test_tms9918_sprites.py`, F5 in both player self-tests.
+
+**Stamps** (measured with `compilation_inputs.role_stamps`): the host stamp of every machine on the host kit moves (`retrorecomp.hostkit`
+stages the new piece); the game stamps of the SG-1000, the ColecoVision, the Master System, the Game Gear, the MSX, the MSX2 and the MSX2+
+move (the video chip's files, `shares:tms9918`, and the option's); no quick state changes.
+
 ## Z80 chain (MSX family, SG-1000, ColecoVision, ZX Spectrum, Amstrad CPC): no bound on the code learned from RAM, and the reports count windows and bodies apart (next release)
 
 The chain kept at most 4,096 windows twice over, and kept none of it quietly. A headless run learned at most 4,096 windows

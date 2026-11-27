@@ -58,7 +58,7 @@ class Sg1000Profile(SystemProfile):
     # The third-party components its games will compile in (retrorecomp/notices.py; the player shell's are added): the banked Z80
     # chain's generator and core, the corrected reference interpreter of the counted fallback. No BIOS: nothing else.
     notice_files = ('licenses/smsggrecomp.md', 'licenses/z80-recomp-core.md', 'licenses/superzazu-z80.md')
-    stamp_groups = ('z80_main', 'z80_chain_glue', 'tms9918', 'sn76489', 'audio_box', 'z80_chain_state', 'state_file', 'conversion_gates')
+    stamp_groups = ('z80_main', 'z80_chain_glue', 'tms9918', 'sn76489', 'audio_box', 'z80_chain_state', 'state_file', 'hostkit_sprite_option', 'conversion_gates')
     # The per-game generated files of the simulation identity (retrorecomp/simulation_identity.py), below the build project: the
     # chain's generated sources, which every machine on the banked Z80 chain has. The machine's own loop and game header are added
     # with its conversion.
