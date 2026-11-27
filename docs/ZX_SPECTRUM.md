@@ -194,6 +194,10 @@ This is agreement with a second emulator (G11 `P`), not hardware proof.
     A ball resting on the paddle before a launch sits right of the centre, and it moves with the paddle. So before every launch,
     right keeps accelerating (4, 5, 6 … 13 pixels a frame up to the wall) and left stays at 2. That is the asymmetry a player
     sees most.
+  - **The ball leaves the paddle by itself.** With no input at all, the ball appears on the paddle (frame 1,325 of the play
+    route) and is launched at frame 1,535, about 4.2 seconds later at 50 frames a second. It leaves at the same frame whether
+    the paddle is held left, held right or not moved, and MAME 0.289 launches it at the same frame. A player who moves during
+    those seconds sees the ball go as if the move had fired it (the owner's report of 27 November); no fire key is pressed.
   - **Checked on the pad path and against MAME 0.289** (27 November 2026). Same snapshot, the ball in flight, the paddle and
     the speed read every frame:
     - MAME 0.289 with Interface 2's 1 and 2 held (the pad's keys) and with Z and M gives the same positions as ours, one frame
