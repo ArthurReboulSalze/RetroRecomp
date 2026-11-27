@@ -1,7 +1,7 @@
 # PC Engine CD / TurboGrafx-CD
 
 Status: **experimental**, open to players (21 November 2026). Steps 1 to 3 of [NEW_MACHINE.md](NEW_MACHINE.md) are done as far as they can be without the owner: nine discs convert and match on
-Windows and Linux, routes reach play on eight of them, multiplayer is proved on one PC. The owner played three of them and accepted them (G14, 27 November 2026, [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)); the exit from experimental is not recorded. The decisions
+Windows and Linux, routes reach play on all nine (Dungeon Explorer II since a fix of 27 November), multiplayer is proved on one PC. The owner played three of them and accepted them (G14, 27 November 2026, [QUALIFICATION.md](QUALIFICATION.md#owner-acceptance)); the exit from experimental is not recorded. The decisions
 below are the owner's, taken on 21 November 2026 after the study.
 
 ## 1. What it converts, and what it does not
@@ -88,7 +88,7 @@ maintainer's Japanese Super System Card 3.0, the Super RAM profile, the drive's 
 What these numbers say and what they do not: on the two routes of each disc (boot, then a play route), no instruction ran on the interpreter, the delivered game gave the same picture, sound,
 RAM and CPU state on every frame as the build with every instruction interpreted, a quick state continued the saved timeline in a fresh process, and eleven kinds of damaged backup
 file were set aside. **They do not say the games are translated**: a route of 3,600 frames reaches the System Card's start-up and the first screens of a game, and the boot route sees only the
-System Card's "push RUN" screen (three pictures, no sound), so the code a game loads later from its disc has not run. The depth of the routes past the loading screens is gate G9: the extended level's explored route (below) reaches play on eight discs of the panel.
+System Card's "push RUN" screen (three pictures, no sound), so the code a game loads later from its disc has not run. The depth of the routes past the loading screens is gate G9: the extended level's explored route (below) reaches play on all nine discs of the panel.
 Nothing here says hardware fidelity, gameplay or latency.
 
 Measured on the way: the strict policy for the drive's unknown commands stops Ys III and The Addams Family (an unknown command `$FF` when RUN is pressed) and is not the default; the Japanese
@@ -108,7 +108,8 @@ misses, native equal to the reference on every frame, the published executable r
 | The Addams Family | 889 | 9,932 / 25 | walk, action, action, menu, menu, walk | 9,562 | **in play**: the first level |
 | Akumajou Dracula X | 872 | 43,896 / 383 | walk, walk, action, action, tap, walk | 7,937 | **in play**: a name typed (a save written), the stage 0 fight on the carriage |
 | Buster Bros. | 867 | 8,098 / 19 | walk, menu, action, walk, walk, action | 13,634 | **in play**: stages 1 and 2-4 |
-| Dungeon Explorer II | 773 | 45,071 / 252 | tap, tap, tap, menu, walk, walk | 1,300 | the player-count menu, the world map and the opening scenes; **no play seen** |
+| Dungeon Explorer II (before the memory change) | 773 | 45,071 / 252 | tap, tap, tap, menu, walk, walk | 1,300 | the player-count menu, the world map and the opening scenes; no play seen |
+| Dungeon Explorer II (converted again) | 794 | 59,714 / 319 | tap, walk, walk, walk, walk, walk | 2,560 | **in play**: the file screen, the opening scenes, then the castle with two characters and their health bars |
 | 4 in 1 Super CD | 839 | 115,380 / 574 | action, menu, tap, walk, walk, walk | 13,796 | **in play**: Gate of Thunder (one of the four games) |
 | Lords of Thunder | 858 | 125,684 / 841 | action, action, walk, menu, menu, walk | 12,695 | **in play**: the shop, the first stage and its enemies |
 | Valis III | 814 | 18,103 / 34 | tap, action, action, walk, action, tap | 9,938 | **in play**: the first stage |
@@ -131,6 +132,12 @@ checks and ships is the composed script, played from the start; the states it wa
 On Akumajou Dracula X this is what changes: the route types a name in the file screen (a save in the backup memory), starts the game, reaches the first stage (health bar and score on screen) and its
 cut-scenes, where the walk stopped at the file screen for the whole route. A route's depth is a measure of the route, never of the game: what a route reaches is not what a player can reach, and what it
 does not reach runs on the interpreter, counted.
+
+**Dungeon Explorer II (27 November 2026).** Its routes stopped short of play because a disc without a save file found a **blank** backup memory: choosing START asks « make a save file? » and, on YES, answers « please initialize
+backup RAM » and returns to the title. A real player would have had to go to the System Card's own memory screen first. The memory now starts formatted, as on a HuCard, in Beetle and in MAME (section 1), and
+the game goes on to its file screen. Converted again at the extended level (`tools/release_check.py`, empty private library): every gate passes, 0 interpreted instructions on the three routes, native equal to the
+reference, and the long route reaches the castle in play. The other eight discs of the panel were converted before this change; they reached play then, and the change reaches a game only through what it reads
+from that memory.
 
 ## 6. Multiplayer (step 3, 22 November 2026)
 
