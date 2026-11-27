@@ -177,7 +177,14 @@ Audited on a player's library of 12,347 files and a frontend's firmware folder o
   version reads it again (a ceiling of 8 GiB against a hostile archive, the disk's room checked first, a base too large named
   as such), and the server now publishes a slimmer base.
 
-### PlayStation **[PLACEHOLDER: CHD discs and the CHD reader shared with the PC Engine CD, to confirm]**
+### PlayStation: CHD discs ([PLAYSTATION.md](PLAYSTATION.md))
+
+- CHD discs (versions 4 and 5, every codec: LZMA, Deflate, FLAC audio, Zstandard) convert like the CUE/BIN set they were made from:
+  the same game key, routes, states and multiplayer identity, and the same exported game byte for byte. The game holds the decoded
+  disc, not the CHD. Not covered: a CHD with a parent, GD-ROM or DVD CHDs, a multi-disc set of CHDs, sub-channel data (LibCrypt).
+- One CHD reader, shared with the PC Engine CD and decoded by libchdr in the converter, never in a game; the PC Engine CD's output
+  is unchanged. Discs of other machines (Saturn, Sega CD, Neo Geo CD, Dreamcast) are refused by their content instead of being
+  labelled PlayStation or PC Engine CD.
 
 **Your exports and quick states.** **[PLACEHOLDER final commit: the stamps measured between 1.9.1 and 1.10.0, what is converted
 again]** An F8 / F9 quick state made in 1.9.1 is refused cleanly, with a message, on the Mega Drive, the Super Nintendo, the PC
