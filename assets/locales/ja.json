@@ -622,7 +622,7 @@
     "msx2plus_fmbios_label": "MSX2+：あなた自身の MSX-MUSIC BIOS（16 KiB、任意）",
     "msx2plus_kanji_label": "MSX2+：あなた自身の日本語フォント ROM（128 または 256 KiB、任意）",
     "options_cpc": "Amstrad CPC",
-    "options_cpc_note": "Amstrad CPC プロファイル（開発中）：CPC 6128 のディスクのゲーム（.dsk、または .dsk の ZIP）。まだ変換しません。あなた自身のシステム ROM（32 KiB、CPC 6128 または 664）とあなた自身の AMSDOS ROM（16 KiB）が必要です。",
+    "options_cpc_note": "Amstrad CPC プロファイル：CPC 6128 のディスクのゲーム（.dsk、標準または拡張、または .dsk の ZIP）。ディスクのカタログが示すコマンドで BASIC から起動します。標準では CPC 6128 のシステム ROM と AMSDOS ROM で起動します。Amstrad のエミュレーター向けの許可のもとで、固定されたソースから一度だけダウンロードして確認します。または下の二つの行で、あなた自身のシステム ROM（32 KiB、または 16 KiB の OS と BASIC のファイル。CPC 6128 または 664）と AMSDOS ROM を選んでください。ゲームがディスクに書いた内容はゲームの横のコピーに保存されます。このプロファイルの対象外：テープ、スナップショット、CPC 464、Plus の機種。ファームウェアはあらかじめ変換され、ゲームが RAM から実行するコードは学習されます。残りはインタープリターで実行され、数えられます。共通のメニュー、フィルター、操作。F8 でクイックステートを保存、F9 で読み込みます。",
     "cpc_system_label": "Amstrad CPC：あなた自身のシステム ROM（32 KiB / 16 KiB の OS + BASIC）",
     "cpc_amsdos_label": "Amstrad CPC：あなた自身の AMSDOS ROM（16 KiB、ディスク）",
     "options_n64": "NINTENDO64",

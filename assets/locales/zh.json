@@ -622,7 +622,7 @@
     "msx2plus_fmbios_label": "MSX2+：你自己的 MSX-MUSIC BIOS（16 KiB，可选）",
     "msx2plus_kanji_label": "MSX2+：你自己的日文字体 ROM（128 或 256 KiB，可选）",
     "options_cpc": "Amstrad CPC",
-    "options_cpc_note": "Amstrad CPC 配置（开发中）：CPC 6128 的磁盘游戏（.dsk，或含 .dsk 的 ZIP）。尚未转换。需要你自己的系统 ROM（32 KiB，CPC 6128 或 664）和你自己的 AMSDOS ROM（16 KiB）。",
+    "options_cpc_note": "Amstrad CPC 配置：CPC 6128 的磁盘游戏（.dsk 映像，标准或扩展，或含 .dsk 的 ZIP），用磁盘目录中的命令从 BASIC 启动。默认情况下，游戏使用 CPC 6128 的系统 ROM 和 AMSDOS ROM 启动：在 Amstrad 允许这类软件再分发的许可下，从固定的来源下载一次并校验。或者在下面两行中选择你自己的系统 ROM（32 KiB，或 16 KiB 的 OS 和 BASIC 文件；CPC 6128 或 664）和你自己的 AMSDOS ROM。游戏写入磁盘的内容保存在它旁边的另一份文件中。此配置不支持：磁带、快照、CPC 464 和 Plus 机型。固件预先翻译，游戏从 RAM 运行的代码会被学习；其他部分由解释器执行并计数。通用菜单、滤镜和控制；F8 保存、F9 读取快速存档。",
     "cpc_system_label": "Amstrad CPC：你自己的系统 ROM（32 KiB / 16 KiB 的 OS + BASIC）",
     "cpc_amsdos_label": "Amstrad CPC：你自己的 AMSDOS ROM（16 KiB，磁盘）",
     "options_n64": "Nintendo 64",

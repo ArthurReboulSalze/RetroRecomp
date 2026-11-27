@@ -10,7 +10,7 @@ from unittest import mock
 import zipfile
 
 from retrorecomp import cpc_firmware
-from retrorecomp.systems import ConsoleMismatchError, UnsupportedConsoleError, get_profile, profile_for_path
+from retrorecomp.systems import ConsoleMismatchError, get_profile, profile_for_path
 from tests.test_cpc_disk import image
 
 
@@ -25,9 +25,9 @@ class ProfileTests(unittest.TestCase):
     def test_the_profile(self):
         profile = get_profile('cpc')
         self.assertEqual((profile.name, profile.status, profile.linux, profile.developer_only, profile.available()),
-                         ('Amstrad CPC', 'experimental', 'pending', True, True))      # a development tree converts it
+                         ('Amstrad CPC', 'supported', 'witnessed', False, True))      # supported from 27 November 2026
         with mock.patch.object(sys, 'frozen', True, create=True):
-            self.assertFalse(profile.available())                                     # the packaged converter does not
+            self.assertTrue(profile.available())                                      # the packaged converter too
         self.assertEqual(profile.option_key_names, {'cpc_system', 'cpc_amsdos'})
 
     def test_the_vector_rule_is_the_bus_rule_per_trace_in_t_states(self):
@@ -42,12 +42,12 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(tstates(fetch + ['----']), 8)
         self.assertEqual(get_profile('cpc').z80_machine.port_bits, 16)
 
-    def test_a_cpc_disk_is_the_cpcs_and_refused_while_in_development(self):
+    def test_a_cpc_disk_is_the_cpcs_in_every_installation(self):
         disk = self.root / 'Game.dsk'
         disk.write_bytes(image((('DISC', 'BAS', 0, False),)))
         self.assertEqual(profile_for_path(disk).id, 'cpc')                          # a development tree
-        with mock.patch.object(sys, 'frozen', True, create=True), self.assertRaisesRegex(UnsupportedConsoleError, 'Amstrad CPC'):
-            profile_for_path(disk)                                                    # the packaged converter
+        with mock.patch.object(sys, 'frozen', True, create=True):
+            self.assertEqual(profile_for_path(disk).id, 'cpc')                      # the packaged converter
         with self.assertRaises(ConsoleMismatchError):
             profile_for_path(disk, 'msx2plus')
         self.assertEqual(get_profile('cpc').read_rom(disk).run_command, 'RUN"DISC')
@@ -57,8 +57,8 @@ class ProfileTests(unittest.TestCase):
         with zipfile.ZipFile(archive, 'w') as bundle:
             bundle.writestr('Game (E).dsk', image())
         self.assertEqual(profile_for_path(archive).id, 'cpc')
-        with mock.patch.object(sys, 'frozen', True, create=True), self.assertRaisesRegex(UnsupportedConsoleError, 'Amstrad CPC'):
-            profile_for_path(archive)
+        with mock.patch.object(sys, 'frozen', True, create=True):
+            self.assertEqual(profile_for_path(archive).id, 'cpc')
 
     def test_an_msx_disk_is_left_to_the_msx2plus(self):
         disk = self.root / 'msx.dsk'

@@ -622,7 +622,7 @@
     "msx2plus_fmbios_label": "MSX2+: tu propia BIOS MSX-MUSIC (16 KiB, opcional)",
     "msx2plus_kanji_label": "MSX2+: tu propia ROM de fuente kanji (128 o 256 KiB, opcional)",
     "options_cpc": "Amstrad CPC",
-    "options_cpc_note": "Perfil Amstrad CPC (en desarrollo): juegos en disco del CPC 6128, una imagen .dsk (estándar o extendida) o un ZIP que contenga una. Aún no se convierte: los discos se reconocen y se rechazan con este motivo. Los juegos necesitarán tu propia ROM de sistema (32 KiB: el OS y el BASIC de un CPC 6128 o 664) y tu propia ROM AMSDOS (16 KiB), elegidas en las dos filas de abajo; ninguna se incluye.",
+    "options_cpc_note": "Perfil Amstrad CPC: juegos en disco del CPC 6128, una imagen .dsk (estándar o extendida) o un ZIP que contenga una, iniciados desde el BASIC con el comando que da el catálogo del disco. Por defecto los juegos arrancan la ROM del sistema y la ROM AMSDOS del CPC 6128, descargadas una vez desde una fuente fijada, bajo el permiso de Amstrad para los emuladores, y comprobadas. O elige tu propia ROM del sistema (32 KiB, o sus archivos OS y BASIC de 16 KiB; un CPC 6128 o 664) y tu propia ROM AMSDOS en las dos filas de abajo. Lo que un juego escribe en su disco se guarda en una copia a su lado. Fuera de este perfil: cintas, instantáneas, el CPC 464 y la gama Plus. El firmware se traduce de antemano y el código que el juego ejecuta desde la RAM se aprende; el resto se interpreta y se cuenta. Menús, filtros y controles comunes; F8 guarda y F9 carga un estado rápido.",
     "cpc_system_label": "Amstrad CPC: tu propia ROM de sistema (32 KiB, o sus archivos OS y BASIC de 16 KiB)",
     "cpc_amsdos_label": "Amstrad CPC: tu propia ROM AMSDOS (16 KiB, para los discos)",
     "options_n64": "Nintendo 64",

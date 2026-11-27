@@ -1,4 +1,4 @@
-"""Amstrad CPC conversion (experimental, developer only): a disk game started from BASIC on the CPC 6128's firmware, the firmware
+"""Amstrad CPC conversion (supported from 27 November 2026): a disk game started from BASIC on the CPC 6128's firmware, the firmware
 translated by the banked Z80 chain and the game's code learned from RAM, checked against the reference interpreter, built into a
 game. MIT, Retro-Recomp.
 
@@ -13,8 +13,9 @@ headless and compare it with the reference and the native check; check quick sta
 2) and put the delivered file in the output folder.
 
 The five measures stay apart: native code (the Z80 instructions run natively and on the counted interpreter) and agreement with the
-reference on the route played are measured; hardware fidelity, gameplay and physical latency are not. Today the route is the
-start of the game only (the start command typed, then the frames that follow, no joystick): the report says so.
+reference on the routes played are measured; hardware fidelity, gameplay and physical latency are not. The routes are the start
+of the game (the start command typed, then nothing) and a play route (the start keys, then the joystick at random,
+cpc_routes.py), scripted runs, not played games: the report says so.
 """
 from __future__ import annotations
 
@@ -26,13 +27,6 @@ from .core import ConversionError
 FRAMES = 3600                    # the boot route's default length
 
 
-def developer_available() -> bool:
-    """True on a development tree (the converter run from its sources), so that the batch and the converter window convert the
-    CPC there; False in the packaged converter, which no player has the machine in until it leaves its developer-only stage."""
-    import sys
-    return not getattr(sys, 'frozen', False)
-
-
 LIVENESS_FIELDS = {key: key for key in ('frames', 'distinct_pictures', 'picture_changes', 'last_picture_change_frame', 'audible_frames',
                                         'last_audible_frame', 'distinct_sound_blocks', 'distinct_ram_states',
                                         'distinct_program_counters')}
@@ -41,9 +35,9 @@ STATE_SETTLE = 600               # frames a fresh process continues after it loa
 MIN_FRAMES = 60 + STATE_SETTLE + 60
 CRTC_TYPE = 1                    # the CRTC of the board (cpc_crtc.h: type 1, the 6128's commonest)
 MODEL = 'cpc6128'                # the board modelled (its firmware record names it: part of the identity)
-DELIVERY_NOTE = ('a game executable is delivered (developer only, experimental): the translated firmware and the code the game ran '
+DELIVERY_NOTE = ('a game executable is delivered: the translated firmware and the code the game ran '
                  'from RAM, with the CPC player, the host kit and the game\'s disk; the file delivered was replayed headless on the '
-                 'boot route and equals the reference interpreter and the native check on every compared field and every frame row; '
+                 'routes and equals the reference interpreter and the native check on every compared field and every frame row; '
                  'no player has played it, and nothing is claimed about the hardware, the gameplay or the latency')
 
 

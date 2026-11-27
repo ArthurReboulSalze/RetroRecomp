@@ -1,11 +1,16 @@
 # Amstrad CPC
 
-**Status: in development (experimental, developer only).** The profile `cpc` recognises Amstrad CPC disk images and converts
-them, for developers only, on the CPC 6128's firmware: the panel's eight games convert with 0 interpreted instructions on their
-routes, equal to the reference interpreter frame by frame, the same on Windows and Linux ([section 5](#5-panel-22-november-2026)).
-It is offered in no installation (the packaged converter does not list it); on a development tree it converts through
-`RetroRecomp.py batch --system cpc` and the converter window as the other machines do. The owner's play test (G14) is to come. This page says what is built, what is measured and what
-is left out. No game is claimed to be validated: the routes are short, scripted runs.
+**Status: supported (from the next release, on the owner's G14 of 27 November 2026).** The profile `cpc` converts Amstrad CPC
+6128 disk games on the CPC 6128's firmware, in every installation, through the converter window and `RetroRecomp.py batch
+--system cpc` as the other machines do. The panel's eight games convert with 0 interpreted instructions on their routes, equal
+to the reference interpreter frame by frame, the same on Windows and Linux ([section 5](#5-panel-22-november-2026)); the owner
+played three of them and found them working, inputs included (« CPC bien », 27 November 2026). This page says what is built, what
+is measured and what is left out ([section 10](#10-known-limits)). « Supported » is the project's written checklist
+([QUALIFICATION.md](QUALIFICATION.md)), not a claim that every CPC game runs, nor that the machine is reproduced exactly: the
+routes are short, scripted runs, and hardware fidelity and latency are not measured.
+
+Before 27 November 2026 the CPC was experimental and offered to developers only (a development tree converted it, the packaged
+converter did not list it).
 
 ## 1. Scope
 
@@ -95,7 +100,9 @@ Native code, CPU fidelity, hardware fidelity, gameplay validation and physical l
   ports' write sequences, the « Ready » screen, instruction timing and a disk load agree; the differences are listed in
   [QUALIFICATION.md](QUALIFICATION.md) (G11): the interrupts' phase from reset, port B's printer bits, the disk's speed (no
   rotation here), the ID a read returns at a track's end, and 1 us in the IM 1 acceptance, which waits for a hardware test.
-* **Gameplay validation**: not done. The routes are 3,600 frames each, scripted; the owner's play test is G14.
+* **Gameplay validation**: the owner's play test (G14, 27 November 2026): Bomb Jack, Gryzor and Head over Heels played on his PC
+  and found working, inputs included. Three games and one person's impression, not a measure; the conversion's own routes are
+  3,600 frames each, scripted.
 * **Physical latency**: not measured, never claimed.
 
 ## 5. Panel (22 November 2026; taken again on 27 November with the routes' fire on the stick's default line)
@@ -121,8 +128,10 @@ For every game: the native run equals the reference interpreter on both routes, 
 (compressed) file replayed headless equals both; a quick state saved near the play route's end continues in a fresh process for
 600 frames, 13 kinds of damaged state and a missing one are refused; `tools/release_check.py`'s conversion, native_reference,
 fallback, packed and states gates pass. The pictures at frames 2,400 and 3,600 of each play route were looked at, and the sound
-written as WAV. **Linux**: Bomb Jack converted again in WSL (Debian 13) from the same sources gives the same rows as Windows on
-both routes (native, reference and delivered file), the same learning and the same final hashes.
+written as WAV. **Linux** (G13, 27 November 2026): Bomb Jack, Gryzor, Head over Heels, Match Day II and Robocop converted in WSL
+(Debian 13) and on Windows from one commit, each from an empty library, give the same learning, the same final checks on both
+routes (native, reference and delivered file, every frame's row) and the same multiplayer snapshot digests. No Linux PC with a
+real display was used.
 
 **Long routes** (22 November 2026, taken again on 27 November with the routes' new fire): the eight games played 18,000 frames (five minutes: the play route's 3,600, then the joystick
 and a start key every 600 frames, so a game that ended goes back into play; the 3,600-frame scripts are unchanged) with the programs
@@ -152,8 +161,13 @@ both routes and passes every `release_check` gate, with the routes' new fire too
 (Carrier Command 3,962,944 interpreted steps, Dark Side 3,111,544, Rigel's Revenge 284,663) and runs 0 on the second; converted again
 with the patterns it learned (what a received path would bring), it runs 0 from the first pass. The native code at the end is the
 same (the same native steps, 0 interpreted either way): received paths would add no native instruction, and would save one learning
-pass, 12 to 15 s of 60 to 95 s here (a PC busy with other work, not a timed measure). Whether that is worth sharing the CPC's paths
-is the maintainer's decision.
+pass, 12 to 15 s of 60 to 95 s here (a PC busy with other work, not a timed measure). The CPC therefore does not share its paths
+(27 November 2026, under the owner's rule of 14 November: sharing that adds nothing useful is declined): a path received from
+another conversion would give the player no native instruction and no picture, sound or input that a conversion without it lacks,
+only a conversion about 15 s shorter, once per game. What sharing could bring one day is the code a game first runs beyond its
+conversion's routes (on the long routes, 0 to 2,565,973 interpreted steps after frame 3,600), but only if played games recorded it
+and sent it back; that is not measured, and the CPC's games record nothing from play (its kind, 31, is reserved only). It is recorded in `DECLINED['path_sharing']`
+(`tests/test_machine_registry.py`) with G16 `-`; the measure can be taken again if that changes.
 
 Bomb Jack, Gryzor and Head over Heels are delivered for the owner's play test, with a short checklist (G14); he played the copies
 converted through the batch (main `aeafa681`) and found them working, inputs included (27 November 2026). `tools/cpc_panel.py`
@@ -177,8 +191,9 @@ digests), then on the panel's games (22 November 2026, taken again on 27 Novembe
 
 * the snapshots on all eight (`--snap-probe 2400:300` on the play route of the delivered game): saved twice the same, a snapshot of
   the wrong size refused, and after loading the one of frame 2,400 the next 300 frames give the same digests and pictures again;
-* Bomb Jack on Windows and in WSL (Debian 13), converted from the same commit: the same folded digest of those 301 frames
-  (`75a8746ce9ab3afb`) and the same final hashes on both routes;
+* five games on Windows and in WSL (Debian 13), converted from the same commit (Bomb Jack, Gryzor, Head over Heels, Match Day
+  II, Robocop; 27 November 2026): the same folded digest of those 301 frames on both systems for each (Bomb Jack's
+  `75a8746ce9ab3afb`) and the same final hashes on both routes;
 * `tools/netplay_game_smoke.py` on real games, one PC: Bomb Jack, two seats in rollback with 30 ms latency, 10 ms jitter and 2 %
   loss and a restart for everyone at frame 1,500 (61 corrections, at most 8 frames deep, digests equal on every 60th frame of
   3,000); Gryzor with the host's save at frame 1,800 and load at 2,400 for everyone (equal digests).
@@ -198,6 +213,10 @@ About three minutes a game, on Bomb Jack, Gryzor and Head over Heels as delivere
 4. **Controls**: the pad is joystick 1 (A the fire, as a one-button stick's, B the second fire, Start SPACE, Select RETURN); the keyboard at the CPC's positions,
    Ctrl+Alt+K for the full keyboard. Reactivity is the owner's impression, never a latency figure.
 5. **Quick states**: F8, play on, F9; then F1 (help), pause and the restart.
+
+**Result (27 November 2026)**: the owner played the three, re-delivered through the batch from main `e6bc5eec` with the pad's fire
+fix, and found them working, inputs included (« CPC bien »), then gave G14 (« Ok, je valide le G14 »). His impression of the
+games as he saw and heard them; no latency figure, nothing claimed about the hardware.
 
 ## 8. Optimisation plan (step 4, 22 November 2026; nothing timed yet)
 
@@ -227,11 +246,50 @@ dropped: the division is by a constant, which the compiler already turns into a 
 2 goes on the maintainer's list instead of being merged: counted on the panel's routes, four games have one frame in 3,600 that
 draws fewer than the 13,056 positions (Gryzor 12,870, Robocop 12,968, Head over Heels and Super Hang-On none, a frame the CRTC
 ends early); such a frame shown right after a correction would keep pixels of an older frame than without the correction, so the
-change could alter what is shown, if only for that frame. 4 is on the same list. The timed pass is to come, on the quiet PC with
-the maintainer's go.
+change could alter what is shown, if only for that frame. 4 is on the same list. Both stay out of the release that makes the CPC
+supported (27 November 2026). The timed pass is to come, on the quiet PC with the maintainer's go.
 
 ## 9. References
 
 Written from the chips' data sheets and the CPC's documented behaviour; floooh/chips (zlib) and Clock Signal (MIT) read as
 documentation, nothing of them copied. No GPL code: the Z80 chain carries a noncommercial licence, so no GPL part may share a CPC
 game's executable.
+
+## 10. Known limits
+
+What a player of the supported CPC should know, each one measured or read from the code, none hidden by the word « supported »:
+
+* **Media**: CPC 6128 disk games only (DSK and EXTENDED DSK, or a ZIP holding one). No tapes (`.cdt`), snapshots (`.sna`), CPC
+  464 firmware, Plus range or GX4000, IPF or flux images, light guns or AMX mouse.
+* **Start command**: read from the disk's catalogue; a disk whose catalogue offers two programs and no rule decides between them
+  is refused with its candidates, never guessed.
+* **Disk timing**: the uPD765 completes every operation at once (no rotation, no step time, no overrun); a protection that
+  measures time on the disk is not answered, and loading is not slowed as a real drive would.
+* **Picture**: one CRTC type (type 1, the 6128's commonest); the monitor window's offsets approximate a monitor.
+* **Code beyond the routes**: what a game first runs after its conversion's routes (3,600 frames each) runs on the counted
+  interpreter, shown per route; on the 18,000-frame routes this was 0 to 2,565,973 steps after frame 3,600.
+* **Runtime feedback**: its runtime-feedback kind is 31 (reserved); the Z80 chain records nothing from play, so its games record
+  nothing and the F12 row stays OFF. What a conversion learns comes from its own routes, as on the MSX; its paths are not shared
+  (G16).
+* **Measured against an emulator, not a CPC**: the comparison with MAME's `cpc6128` lists five differences (section 4 and
+  [QUALIFICATION.md](QUALIFICATION.md), G11), among them the interrupts' phase from reset and 1 µs in the IM 1 acceptance.
+* **Written disks**: a game's writes go to a copy beside it, read back at the next start; a second save over a file and a full
+  disk are not exercised.
+* **Multiplayer**: two seats in rollback, proven on one PC and between Windows and WSL; the two-PC test is the multiplayer
+  specialist's.
+* **Firmware**: fetched from a pinned source under Amstrad's 1999 permission for emulators (Locomotive BASIC is not named in it),
+  or the player's own; nothing is in the installer.
+
+## 11. Release lines (drafts for the documentation specialist)
+
+**RELEASE_NOTES** (one entry, under the release that ships it):
+
+> **Amstrad CPC leaves experimental.** CPC 6128 disk games (DSK and extended DSK, or a ZIP holding one) convert in every
+> installation, started from BASIC by the command the disk's catalogue gives, on the 6128's firmware fetched once from a pinned
+> source or on your own ROMs. The panel's eight games run 0 interpreted instructions on their routes and equal the reference
+> interpreter frame by frame, the same on Windows and Linux; what a game writes on its disk is kept in a copy beside it; two
+> players in rollback. The owner played Bomb Jack, Gryzor and Head over Heels (G14). Not measured: hardware fidelity and latency;
+> no tapes, snapshots, CPC 464 or Plus range. Paths are not shared (nothing useful to share, G16). See docs/AMSTRAD_CPC.md.
+
+**In-app « What's new »** (plain text, one line): Amstrad CPC: supported. CPC 6128 disk games convert in every installation
+(firmware fetched once, or your own ROMs).
