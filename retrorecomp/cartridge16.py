@@ -189,7 +189,7 @@ def snes_add_on(data: bytes) -> str | None:
             if title.startswith(marker):
                 return reason                  # the base cartridge carries the Sufami magic too: its title is asked first
     if data[:len(SUFAMI_TURBO_MAGIC)] == SUFAMI_TURBO_MAGIC:
-        return 'a Sufami Turbo cartridge: it needs the Sufami Turbo base cartridge, which is not supported.'
+        return 'a Sufami Turbo game cartridge: it needs the Sufami Turbo base cartridge, which is not supported.'
     return None
 
 
